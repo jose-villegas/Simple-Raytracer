@@ -18,12 +18,12 @@
     <ClCompile Include="Main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="SceneParser.cpp">
+    <ClCompile Include="Scene.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="SceneParser.h">
+    <ClInclude Include="Scene.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
