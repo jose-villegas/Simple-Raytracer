@@ -3,6 +3,8 @@ FGC_RayTracing
 
 Command line raytracing for a simple scene loader with YAML format
 
+Command: raytrace -iescena1.txt -osalida.png -s640x480
+
 Scene Example:
 <pre><code>
   ---
