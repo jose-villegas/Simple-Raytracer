@@ -27,13 +27,13 @@ namespace Scene {
                 std::string materialName;
         };
 
-        class Sphere : Figure {
+        class Sphere : public Figure {
             public:
                 glm::vec3 center;
                 float radius;
         };
 
-        class Cylinder : Figure {
+        class Cylinder : public Figure {
             public:
                 glm::vec2 center;
                 char axis;
@@ -42,9 +42,16 @@ namespace Scene {
                 float max;
         };
 
-        class Triangle : Figure {
+        class Triangle : public Figure {
             public:
                 glm::vec3 points[3];
+        };
+
+        class Cube : public Figure {
+            public:
+                glm::vec2 facesX;
+                glm::vec2 facesY;
+                glm::vec2 facesZ;
         };
     };
 
@@ -80,9 +87,10 @@ namespace Scene {
             std::vector<Figures::Triangle> triangles;
             std::vector<Figures::Sphere> spheres;
             std::vector<Figures::Cylinder> cylinders;
+            std::vector<Figures::Cube> cubes;
     };
 
-    class Serializer {
+    class Serializer : private Parser {
         public:
             static SceneManager serializeParsedScene(Parser parsed);
     };
