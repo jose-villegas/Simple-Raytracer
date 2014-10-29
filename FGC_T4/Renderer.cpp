@@ -39,6 +39,7 @@ void Renderer::init()
         exit(EXIT_FAILURE);
     }
 
+    glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
     GLFWwindow *window = glfwCreateWindow(1440, 900, "Raytracing - RT", NULL, NULL);
 
     if (!window) {
@@ -114,6 +115,7 @@ void Renderer::loadGLSLShader()
     glAttachShader(rt.program, rt.fShader);
     glLinkProgram(rt.program);
     rt.uniformLocs["iResolution"] = glGetUniformLocation(rt.program, "iResolution");
+    logShaderCompilerErrors();
 }
 
 void Renderer::setupRenderQuad()
@@ -124,5 +126,24 @@ void Renderer::setupRenderQuad()
         0.5f, -0.5f, 0.0f, 1.0f,
         0.5f, 0.5f, 0.0f, 1.0f
     };
+}
+
+void Renderer::logShaderCompilerErrors()
+{
+    int bufflen;
+    glGetShaderiv(rt.fShader, GL_INFO_LOG_LENGTH, &bufflen);
+
+    if (bufflen > 1) {
+        GLchar *log_string = new char[bufflen + 1];
+        glGetShaderInfoLog(rt.fShader, bufflen, 0, log_string);
+        printf("Log found for '%s.glsl':\n%s", "raytracing_fragment", log_string);
+        delete log_string;
+    }
+
+    glGetShaderiv(rt.fShader, GL_COMPILE_STATUS, &bufflen);
+
+    if (bufflen != GL_TRUE) {
+        printf("Failed to compile vertex shader.");
+    }
 }
 

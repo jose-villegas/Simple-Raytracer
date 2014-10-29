@@ -23,6 +23,9 @@ class Renderer {
         Shader rt;
         GLenum drawBuffer;
         void loadGLSLShader();
+
+        void logShaderCompilerErrors();
+
         void createRenderTarget();
         void createRenderTexture();
         void configureFrameBuffer();
