@@ -34,7 +34,10 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="raytracing.glsl">
+    <None Include="raytracing_fragment.glsl">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="raytracing_vertex.glsl">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

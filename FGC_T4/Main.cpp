@@ -9,6 +9,6 @@ int main(int argc, char *argv[])
     Scene::SceneManager sceneElements = Scene::Serializer::serializeParsedScene(parser);
     // Wait for User input to close
     render.init();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); std::cin.get();
+    //std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n'); std::cin.get();
     return 0;
 }
