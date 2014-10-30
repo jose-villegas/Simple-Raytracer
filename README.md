@@ -5,7 +5,7 @@ Command line raytracing for a simple scene loader with YAML format
 
 Command: <pre>raytrace -iescena1.txt -osalida.png -s640x480</pre>
 
-### Dependencies: GLFW 3.0.4, GLM Library, GLEW.
+# Dependencies: GLFW 3.0.4, GLM Library, GLEW.
 
 Scene Example:
 <pre><code>
