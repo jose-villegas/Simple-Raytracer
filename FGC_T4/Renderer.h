@@ -18,19 +18,13 @@ class Shader {
 
 class Renderer {
     private:
-        GLuint frameBuffer;
-        GLuint renderedTexture;
         Shader rt;
-        GLenum drawBuffer;
-        void loadGLSLShader();
-
-        void logShaderCompilerErrors();
-
-        void createRenderTarget();
-        void createRenderTexture();
-        void configureFrameBuffer();
-        static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+        GLuint VAO;
+        GLuint VBO;
         void setupRenderQuad();
+        void loadGLSLShader();
+        void logShaderCompilerErrors();
+        static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
     public:
         void init();
         void terminate();

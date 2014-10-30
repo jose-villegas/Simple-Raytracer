@@ -10,29 +10,6 @@ Renderer::~Renderer(void)
 {
 }
 
-void Renderer::createRenderTarget()
-{
-    frameBuffer = 0;
-    glGenFramebuffers(1, &frameBuffer);
-    glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer);
-}
-
-void Renderer::createRenderTexture()
-{
-    glGenTextures(1, &renderedTexture);
-    glBindTexture(GL_TEXTURE_2D, renderedTexture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 1024, 768, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-}
-
-void Renderer::configureFrameBuffer()
-{
-    glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, renderedTexture, 0);
-    drawBuffer = GL_COLOR_ATTACHMENT0;
-    glDrawBuffers(1, &drawBuffer);
-}
-
 void Renderer::init()
 {
     if (!glfwInit()) {
@@ -64,23 +41,13 @@ void Renderer::init()
 
     glfwSetKeyCallback(window, keyCallback);
     loadGLSLShader();
+    setupRenderQuad();
     glUseProgram(rt.program);
-    //glUniform4fv(rt.uniformLocs["iMouse"], 4, &glm::vec4(2.0, 10.0, 0.0, 0.0)[0]);
     glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(1440, 900, 0)[0]);
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
-        // Render
-        glBegin(GL_QUADS);
-        glTexCoord2f(0, 0);
-        glVertex2f(-1, -1);
-        glTexCoord2f(1, 0);
-        glVertex2f(1, -1);
-        glTexCoord2f(1, 1);
-        glVertex2f(1, 1);
-        glTexCoord2f(0, 1);
-        glVertex2f(-1, 1);
-        glEnd();
+        glDrawArrays(GL_TRIANGLES, 0, 6);
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -118,16 +85,6 @@ void Renderer::loadGLSLShader()
     logShaderCompilerErrors();
 }
 
-void Renderer::setupRenderQuad()
-{
-    float vertices[] = {
-        - 0.5f, 0.5f, 0.0f, 1.0f,
-        - 0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, -0.5f, 0.0f, 1.0f,
-        0.5f, 0.5f, 0.0f, 1.0f
-    };
-}
-
 void Renderer::logShaderCompilerErrors()
 {
     int bufflen;
@@ -145,5 +102,24 @@ void Renderer::logShaderCompilerErrors()
     if (bufflen != GL_TRUE) {
         printf("Failed to compile vertex shader.");
     }
+}
+
+void Renderer::setupRenderQuad()
+{
+    static const GLfloat quadVertex[] = {
+        -1.0f, -1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f,
+        -1.0f,  1.0f, 0.0f,
+        1.0f, -1.0f, 0.0f,
+        1.0f,  1.0f, 0.0f,
+    };
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertex), quadVertex, GL_STATIC_DRAW);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid *)0);
+    glEnableVertexAttribArray(0);
 }
 
