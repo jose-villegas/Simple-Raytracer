@@ -77,7 +77,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="raytracing_fragment.glsl" />
-    <None Include="raytracing_vertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
