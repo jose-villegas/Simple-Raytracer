@@ -16,7 +16,7 @@ void Renderer::init()
         exit(EXIT_FAILURE);
     }
 
-    glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
+    // glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
     GLFWwindow *window = glfwCreateWindow(1440, 900, "Raytracing - RT", NULL, NULL);
 
     if (!window) {

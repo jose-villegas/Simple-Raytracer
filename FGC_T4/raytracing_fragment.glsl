@@ -113,18 +113,22 @@ void main()
     tr.mat.reflectiveIndex = 0.3;
     tr.mat.refractiveIndex = 0.0;
     tr.mat.alpha = 0.0;
+    // Mat -> Azul1
+    cy.mat.diffuse = vec3(0.1, 0.0, 1.0);
+    cy.mat.specular = vec3(0.0, .0, 1.0);
+    cy.mat.reflectiveIndex = 0.3;
+    cy.mat.refractiveIndex = 0.0;
+    cy.mat.alpha = 0.0;
     // Light on TOP, only one for TESTING, TODO - MORE LIGHTS
     Light l;
     l.position = vec3(0.0, 5.0, 0.0);
     l.color =  vec3(1.0, 0.0, 0.5);
     vec3 normal, position;
     float t = intersection(r, s, position, normal);
-
     // TODO - DEPTH TESTING - REFLECTIONS - LIGHT BOUNCES
-    if (t > 0.0) {
-        color += phong(r, normal, s.mat, l, position);
-    }
-
+    //if (t > 0.0) {
+    //    color += phong(r, normal, s.mat, l, position);
+    //}
     float t2 = intersection(r, s2, position, normal);
 
     if (t2 > 0.0) {
@@ -134,7 +138,7 @@ void main()
     float t4 = intersection(r, cy, position, normal);
 
     if (t4 > 0.0) {
-        color += vec4(t4);
+        color += phong(r, normal, cy.mat, l, position);
     }
 
     // Unsure
@@ -211,17 +215,22 @@ float intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal)
     if (det <= 0.0) { return -1.0; }
 
     t = (-B - sqrt(det)) / 2.0 * A;
-    t = t > 0.0 ? t : (-B + sqrt(det)) / 2.0 * A;
+    // t = t > 0.0 ? t : (-B + sqrt(det)) / 2.0 * A;
     vec3 p = r.origin + t * r.direction;
     vec3 bCap = cy.axis * cy.min + cy.center;
     vec3 tCap = cy.axis * cy.max + cy.center;
     tb = dot(cy.axis, p - bCap);
     tt = dot(cy.axis, p - tCap);
 
-    if (!(tb > 0.0 && tt < 0.0)) {
-        t = -1.0;
+    if (tb < 0.0 || tt > 0.0) {
+        return -1.0;
     }
 
+    vec3 nv = (tCap - bCap) / distance(tCap, bCap);
+    float nt = dot(p - tCap, nv);
+    vec3 spineP = tCap + nt * nv;
+    position = p;
+    normal = -normalize(p - spineP);
     return t;
 }
 
