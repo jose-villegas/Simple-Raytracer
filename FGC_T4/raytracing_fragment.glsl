@@ -61,9 +61,9 @@ out vec4 fragColor;
 // Clip Coordinates Transform
 vec2 transform(vec2 p);
 // Figures Intersections
-float intersection(Ray r, Sphere s, inout vec3 position, inout vec3 normal);
-float intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal);
-float intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal);
+bool intersection(Ray r, Sphere s, inout vec3 position, inout vec3 normal);
+bool intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal);
+bool intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal);
 // Lighting Model
 vec4 phong(Ray r, vec3 n, Material m, Light l, vec3 position);
 
@@ -71,7 +71,7 @@ void main()
 {
     vec4 color = vec4(0.1, 0.1, 0.1, 0.0);
     Camera camera;
-    camera.position = vec3(0.0, 0.0, 3.0);
+    camera.position = vec3(0.0, 0.0, 5.0);
     camera.direction = vec3(0.0, 0.0, -1.0);
     vec3 rayOrigin = camera.position;
     vec3 rayDirection = vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction;
@@ -84,14 +84,14 @@ void main()
     s.radius = 1.0;
     Sphere s2;
     s2.center = vec3(1.5, 0.0, 0.0);
-    s2.radius = 0.30;
+    s2.radius = 1.0;
     Triangle tr;
     tr.point1 = vec3(4.0, 5.0, 6.0);
     tr.point2 = vec3(-1.5, 2.0, -1.0);
     tr.point3 = vec3(1.0, -1.0, -1.0);
     Cylinder cy;
     cy.min = -2.0;
-    cy.max = 3.0;
+    cy.max = 2.0;
     cy.radius = 1.0;
     cy.axis = vec3(0.0, 0.0, 1.0);
     cy.center = vec3(vec2(-2.0, -2.0), 0.0);
@@ -113,32 +113,19 @@ void main()
     tr.mat.reflectiveIndex = 0.3;
     tr.mat.refractiveIndex = 0.0;
     tr.mat.alpha = 0.0;
-    // Mat -> Azul1
-    cy.mat.diffuse = vec3(0.1, 0.0, 1.0);
-    cy.mat.specular = vec3(0.0, .0, 1.0);
-    cy.mat.reflectiveIndex = 0.3;
-    cy.mat.refractiveIndex = 0.0;
-    cy.mat.alpha = 0.0;
     // Light on TOP, only one for TESTING, TODO - MORE LIGHTS
     Light l;
-    l.position = vec3(0.0, 5.0, 0.0);
+    l.position = vec3(0.0, 5.0, 8.0);
     l.color =  vec3(1.0, 0.0, 0.5);
     vec3 normal, position;
-    float t = intersection(r, s, position, normal);
     // TODO - DEPTH TESTING - REFLECTIONS - LIGHT BOUNCES
-    //if (t > 0.0) {
-    //    color += phong(r, normal, s.mat, l, position);
-    //}
-    float t2 = intersection(r, s2, position, normal);
 
-    if (t2 > 0.0) {
+    if (intersection(r, s2, position, normal)) {
         color += phong(r, normal, s2.mat, l, position);
     }
 
-    float t4 = intersection(r, cy, position, normal);
-
-    if (t4 > 0.0) {
-        color += phong(r, normal, cy.mat, l, position);
+    if (intersection(r, cy, position, normal)) {
+        color += phong(r, normal, tr.mat, l, position);
     }
 
     // Unsure
@@ -151,22 +138,22 @@ void main()
 }
 
 
-float intersection(Ray r, Sphere s, inout vec3 position, inout vec3 normal)
+bool intersection(Ray r, Sphere s, inout vec3 position, inout vec3 normal)
 {
     vec3 oc = r.origin - s.center;
     float b = 2.0 * dot(oc, r.direction);
     float c = dot(oc, oc) - s.radius * s.radius;
     float h = b * b - 4.0 * c;
 
-    if (h < 0.0) { return -1.0; }
+    if (h < 0.0) { return false; }
 
     float t = (-b - sqrt(h)) / 2.0;
     position = r.origin + t * r.direction;
     normal = (position - s.center) / s.radius;
-    return t;
+    return true;
 }
 
-float intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal)
+bool intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal)
 {
     // Möller–Trumbore Algorithm
     vec3 e1 = tr.point2 - tr.point1;
@@ -174,18 +161,18 @@ float intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal)
     vec3 p = (r.direction * e2);
     float det = dot(e1, p);
 
-    if (det > -EPSILON && det < EPSILON) { return -1.0; }
+    if (det > -EPSILON && det < EPSILON) { return false; }
 
     float invDet = 1.0 / det;
     vec3 tvec = r.origin - tr.point1;
     float u = dot(tvec, p) * invDet;
 
-    if (u < 0.0 || u > 1.0) { return -1.0; }
+    if (u < 0.0 || u > 1.0) { return false; }
 
     vec3 q = tvec * e1;
     float v = dot(r.direction, q) * invDet;
 
-    if (v < 0.0 || u + v > 1.0) { return -1.0; }
+    if (v < 0.0 || u + v > 1.0) { return false; }
 
     float t  = dot(e2, q) * invDet;
 
@@ -194,44 +181,154 @@ float intersection(Ray r, Triangle tr, inout vec3 position, inout vec3 normal)
         normal = normalize(vec3(e1.y * e2.z - e1.z * e2.y,
                                 e1.z * e2.x - e1.x * e2.z,
                                 e1.x * e2.y - e1.y * e2.x)); // Placeholder - will pass as a uniform precalculated
-        return t;
+        return true;
     }
 
-    return 0.0;
+    return false;
 }
 
-float intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal)
+vec3 perp(vec3 v)
 {
-    vec3 oc = r.origin - cy.center;
-    vec3 h = r.direction - dot(r.direction, cy.axis) * cy.axis;
-    vec3 q = oc - dot(oc, cy.axis) * cy.axis;
-    float A  = dot(h, h);
-    float B = 2.0 * dot(h, q);
-    float C = dot(q, q) - cy.radius * cy.radius;
-    float det = B * B - 4.0 * A * C;
-    float tb, tt, t;
-    t = tt = tb = -1.0;
+    vec3 b = cross(v, vec3(0, 0, 1));
 
-    if (det <= 0.0) { return -1.0; }
-
-    t = (-B - sqrt(det)) / 2.0 * A;
-    // t = t > 0.0 ? t : (-B + sqrt(det)) / 2.0 * A;
-    vec3 p = r.origin + t * r.direction;
-    vec3 bCap = cy.axis * cy.min + cy.center;
-    vec3 tCap = cy.axis * cy.max + cy.center;
-    tb = dot(cy.axis, p - bCap);
-    tt = dot(cy.axis, p - tCap);
-
-    if (tb < 0.0 || tt > 0.0) {
-        return -1.0;
+    if (dot(b, b) < 0.01) {
+        b = cross(v, vec3(0, 1, 0));
     }
 
-    vec3 nv = (tCap - bCap) / distance(tCap, bCap);
-    float nt = dot(p - tCap, nv);
-    vec3 spineP = tCap + nt * nv;
-    position = p;
-    normal = -normalize(p - spineP);
-    return t;
+    return b;
+}
+
+bool rayCylinderIntersectionT(Ray r, Cylinder cy, out float t)
+{
+    vec3 A = cy.axis * cy.min + cy.center;
+    vec3 B = cy.axis * cy.max + cy.center;
+    float extent = distance(A, B);
+    vec3 W = (B - A) / extent;
+    vec3 U = perp(W);
+    vec3 V = cross(U, W);
+    U = normalize(cross(V, W));
+    V = normalize(V);
+    float rSqr = cy.radius * cy.radius;
+    vec3 diff = r.origin - 0.5 * (A + B);
+    mat3 basis = mat3(U, V, W);
+    vec3 P = diff * basis;
+    float dz = dot(W, r.direction);
+
+    if (abs(dz) >= 1.0 - EPSILON) {
+        float radialSqrtDist = rSqr - P.x * P.x - P.y * P.y;
+
+        if (radialSqrtDist < 0.0) { return false; }
+
+        t = (dz > 0.0 ? -P.z : P.z) + extent * 0.5;
+        return true;
+    }
+
+    vec3 D = vec3(dot(U, r.direction), dot(V, r.direction), dz);
+    float a0 = P.x * P.x + P.y * P.y - rSqr;
+    float a1 = P.x * D.x + P.y * D.y;
+    float a2 = D.x * D.x + D.y * D.y;
+    float discr = a1 * a1 - a0 * a2;
+
+    if (discr < 0.0) {
+        return false;
+    }
+
+    if (discr > EPSILON) {
+        float root = sqrt(discr);
+        float inv = 1.0 / a2;
+        t = (-a1 - root) * inv;
+        return true;
+    }
+
+    t = -a1 / a2;
+    return true;
+}
+
+bool rayPlaneIntersection(Ray r, vec3 planeNormal, vec3 planePoint, out float t)
+{
+    float denom = dot(planeNormal, r.direction);
+    vec3 po = planePoint - r.origin;
+    t = dot(po, planeNormal) / denom;
+    return t >= 0.0;
+}
+
+bool rayDiskPlaneIntersection(Ray r, vec3 planeNormal, vec3 planePoint, float radius, out float t)
+{
+    if (rayPlaneIntersection(r, planeNormal, planePoint, t)) {
+        vec3 p = r.origin + r.direction * t;
+        vec3 v = p - planePoint;
+        float d2 = dot(v, v);
+        return (sqrt(d2) <= radius);
+    }
+
+    return false;
+}
+
+bool intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal)
+{
+    vec3 A = cy.axis * cy.min + cy.center;
+    vec3 B = cy.axis * cy.max + cy.center;
+    vec3 buttomCapPos, topCapPos;
+    float t = 0.0;
+    bool iButtomCap, iTopCap;
+    iButtomCap = iTopCap = false;
+
+    // Test intersection against cylinder caps
+    if (rayDiskPlaneIntersection(r, cy.axis, A, cy.radius, t)) {
+        buttomCapPos = r.origin + t * r.direction;
+        normal = cy.axis;
+        iButtomCap = true;
+    }
+
+    if (rayDiskPlaneIntersection(r, cy.axis, B, cy.radius, t)) {
+        topCapPos = r.origin + t * r.direction;
+        normal = cy.axis;
+        iTopCap = true;
+    }
+
+    if (rayCylinderIntersectionT(r, cy, t)) {
+        float tBottom,  tTop;
+        vec3 sidePos = r.origin + t * r.direction;
+
+        // Compare cylinder caps intersection with side
+        // intersection choose the closest to the ray origin
+        if (iButtomCap && iTopCap) {
+            if (length(topCapPos) > length(buttomCapPos)) {
+                position = buttomCapPos;
+                return true;
+            } else {
+                position = topCapPos;
+                return true;
+            }
+        }
+
+        if (iButtomCap) {
+            if (length(sidePos) > length(buttomCapPos)) {
+                position = buttomCapPos;
+                return true;
+            }
+        }
+
+        if (iTopCap) {
+            if (length(sidePos) > length(topCapPos)) {
+                position = topCapPos;
+                return true;
+            }
+        }
+
+        position = sidePos;
+        tTop = dot(position - B, cy.axis);
+        tBottom = dot(position - A, cy.axis);
+
+        if (tTop > 0.0 || tBottom < 0.0) { return false; }
+
+        // Compute a lighting normal:
+        vec3 v = (B - A) / distance(A, B);
+        float tn = dot(position - A, v);
+        vec3 spinePoint = A + tn * v;
+        normal = normalize(position - spinePoint);
+        return true;
+    } else { return false; }
 }
 
 vec2 transform(vec2 p)
@@ -249,9 +346,9 @@ vec4 phong(Ray r, vec3 n, Material m, Light l, vec3 position)
     vec3 E = normalize(r.origin - position);
     float cosAlpha = clamp(dot(E, R), 0.0, 1.0);
     float cosTheta = clamp(dot(n, lightDir), 0.0, 1.0);
-    float att = 1.0 / (1.0 + (0.5 * d) + (0.25 * d * d));
+    float att = 1.0 / (1.0 + (0.5 * d) + (0.25 * d * d)); // Light Attenuation
     vec3 ambient = vec3(0.1, 0.1, 0.1);
     vec3 diffuse = m.diffuse * l.color * cosTheta;
     vec3 specular = m.specular * l.color * pow(cosAlpha, 10.0);
-    return vec4(ambient + diffuse + specular, 1.0) * att;
+    return vec4(ambient + diffuse + specular, m.alpha) * att;
 }
