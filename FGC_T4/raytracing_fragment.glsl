@@ -1,6 +1,7 @@
 #version 400
 uniform vec3 iResolution;
 #define PI 3.1415926535897932384626433832795
+#define MAX_DELTA 1e20
 #define EPSILON 0.000001
 
 struct Material {
@@ -73,12 +74,9 @@ void main()
     Camera camera;
     camera.position = vec3(0.0, 0.0, 5.0);
     camera.direction = vec3(0.0, 0.0, -1.0);
-    vec3 rayOrigin = camera.position;
-    vec3 rayDirection = vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction;
-    rayDirection = normalize(rayDirection);
     Ray r;
-    r.origin = rayOrigin;
-    r.direction = rayDirection;
+    r.origin = camera.position;
+    r.direction = normalize(vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction);
     Sphere s;
     s.center = vec3(0.0, 0.0, 0.0);
     s.radius = 1.0;
@@ -93,8 +91,8 @@ void main()
     cy.min = -2.0;
     cy.max = 2.0;
     cy.radius = 1.0;
-    cy.axis = vec3(0.0, 0.0, 1.0);
-    cy.center = vec3(vec2(-2.0, -2.0), 0.0);
+    cy.axis = vec3(0.0, 1.0, 0.0);
+    cy.center = vec3(-2.0, .0, 0.0);
     // Mat -> Azul1
     s.mat.diffuse = vec3(0.1, 0.1, 0.9);
     s.mat.specular = vec3(1.0, 1.0, 1.0);
@@ -268,67 +266,43 @@ bool intersection(Ray r, Cylinder cy, inout vec3 position, inout vec3 normal)
 {
     vec3 A = cy.axis * cy.min + cy.center;
     vec3 B = cy.axis * cy.max + cy.center;
-    vec3 buttomCapPos, topCapPos;
-    float t = 0.0;
-    bool iButtomCap, iTopCap;
-    iButtomCap = iTopCap = false;
+    vec3 buttomCapPos, topCapPos, sidePos, sideNormal;
+    float tTop, tButtom, tSide, t;
+    bool iButtomCap, iTopCap, iSide;
+    t = tTop = tButtom = tSide = MAX_DELTA;
+    iButtomCap = iTopCap = iSide = false;
 
     // Test intersection against cylinder caps
-    if (rayDiskPlaneIntersection(r, cy.axis, A, cy.radius, t)) {
-        buttomCapPos = r.origin + t * r.direction;
-        normal = cy.axis;
-        iButtomCap = true;
-    }
+    if (rayDiskPlaneIntersection(r, cy.axis, A, cy.radius, t)) {tButtom = t; iButtomCap = true;}
 
-    if (rayDiskPlaneIntersection(r, cy.axis, B, cy.radius, t)) {
-        topCapPos = r.origin + t * r.direction;
-        normal = cy.axis;
-        iTopCap = true;
-    }
+    if (rayDiskPlaneIntersection(r, cy.axis, B, cy.radius, t)) {tTop = t; iTopCap = true;}
 
     if (rayCylinderIntersectionT(r, cy, t)) {
-        float tBottom,  tTop;
         vec3 sidePos = r.origin + t * r.direction;
 
-        // Compare cylinder caps intersection with side
-        // intersection choose the closest to the ray origin
-        if (iButtomCap && iTopCap) {
-            if (length(topCapPos) > length(buttomCapPos)) {
-                position = buttomCapPos;
-                return true;
-            } else {
-                position = topCapPos;
-                return true;
-            }
+        if (dot(sidePos - B, cy.axis) < 0.0 && dot(sidePos - A, cy.axis) > 0.0) {
+            iSide = true;
+            tSide = t;
+        }
+    }
+
+    if (iSide || iTopCap || iButtomCap) {
+        t = min(tSide, min(tButtom, tTop));
+        position = r.origin + t * r.direction;
+
+        if (t == tButtom || t == tTop) {
+            normal = cy.axis;
+        } else {
+            vec3 v = (B - A) / distance(A, B);
+            float tn = dot(position - A, v);
+            vec3 spinePoint = A + tn * v;
+            normal = normalize(position - spinePoint);
         }
 
-        if (iButtomCap) {
-            if (length(sidePos) > length(buttomCapPos)) {
-                position = buttomCapPos;
-                return true;
-            }
-        }
-
-        if (iTopCap) {
-            if (length(sidePos) > length(topCapPos)) {
-                position = topCapPos;
-                return true;
-            }
-        }
-
-        position = sidePos;
-        tTop = dot(position - B, cy.axis);
-        tBottom = dot(position - A, cy.axis);
-
-        if (tTop > 0.0 || tBottom < 0.0) { return false; }
-
-        // Compute a lighting normal:
-        vec3 v = (B - A) / distance(A, B);
-        float tn = dot(position - A, v);
-        vec3 spinePoint = A + tn * v;
-        normal = normalize(position - spinePoint);
         return true;
-    } else { return false; }
+    }
+
+    return false;
 }
 
 vec2 transform(vec2 p)
