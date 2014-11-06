@@ -35,5 +35,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="raytracing_fragment.glsl" />
+    <None Include="test.yml">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
