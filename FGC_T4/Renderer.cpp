@@ -16,7 +16,7 @@ void Renderer::init()
         exit(EXIT_FAILURE);
     }
 
-    glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
+    // glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
     GLFWwindow *window = glfwCreateWindow(1440, 900, "Raytracing - RT", NULL, NULL);
 
     if (!window) {
@@ -42,6 +42,10 @@ void Renderer::init()
     glfwSetKeyCallback(window, keyCallback);
     loadGLSLShader();
     setupRenderQuad();
+    // OpenGL App Options
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    // Load Relevant Uniforms
     glUseProgram(rt.program);
     glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(1440, 900, 0)[0]);
 
