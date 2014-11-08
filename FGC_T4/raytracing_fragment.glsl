@@ -67,7 +67,7 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 1;
+const int NUM_BOUNCES = 256;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 3;
@@ -80,30 +80,31 @@ Sphere spheres[NUM_SPHERES];
 Triangle triangles[NUM_TRIANGLES];
 Cylinder cylinders[NUM_CYLINDERS];
 // Lights
-const int NUM_LIGHTS = 2;
+const int NUM_LIGHTS = 3;
 Light lights[NUM_LIGHTS];
 // Scene Initializer
 void initScene()
 {
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 0.0, 1.0, 3);
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 1.0, 1);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 1.0, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 1.0, 3);
     // --
     // YML SPHERES
     spheres[0] = Sphere(materials[0], vec3(2.5, 0.0, 0.0), 1.0, 1);
     spheres[1] = Sphere(materials[2], vec3(0.0, 0.0, -1.5), 1.0, 2);
-    spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.3, 3);
+    spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.75, 3);
     spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // YML CYLINDERS
-    cylinders[0] = Cylinder(materials[0], vec3(3.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 6);
+    cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
+    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
     // --
     // --
     // YML LIGHTS
-    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
-    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
+    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.0, 1);
+    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.0, 2);
+    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.0, 3);
     // --
     // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
     triangles[0].id = -1;
@@ -182,7 +183,7 @@ vec4 trace(inout Ray inRay)
         }
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
-            color_final += phong(inRay, lights[l], point);
+            color_final += cooktorrance(inRay, lights[l], point);
         }
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
