@@ -87,24 +87,24 @@ void initScene()
 {
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 1.0, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 1.0, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 1.0, 3);
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.7, 1);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 0.5, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.2, 0.0, 0.3, 3);
     // --
     // YML SPHERES
-    spheres[0] = Sphere(materials[0], vec3(2.5, 0.0, 0.0), 1.0, 1);
+    spheres[0] = Sphere(materials[0], vec3(1.0, 0.0, 1.5), 1.0, 1);
     spheres[1] = Sphere(materials[2], vec3(0.0, 0.0, -1.5), 1.0, 2);
     spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.75, 3);
     spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // YML CYLINDERS
     cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
+    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), 1.0, 1.0, -1.0, 6);
     // --
     // --
     // YML LIGHTS
     lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.0, 1);
-    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.0, 2);
-    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.0, 3);
+    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.7, 2);
+    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.5, 3);
     // --
     // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
     triangles[0].id = -1;
@@ -113,14 +113,18 @@ void initScene()
 }
 // --
 // END:SCENEWRITER
+const vec4 color_ambient = vec4(vec3(0.01), 1.0);
+const Material ambient = Material(color_ambient.xyz, color_ambient.xyz, 0.0, 0.0, 1.0, 0);
 
-vec2 transform(vec2 p);		// Clip Coordinates Transform
-vec3 perp(vec3 v);			// Perpendicular Vector
+// Some relevant functions
+vec2 transform(vec2 p);						// Clip Coordinates Transform
+vec3 perp(vec3 v);							// Perpendicular Vector
+Material blend(Material m1, Material m2);	// Alpha Blending
 
 // Figures Intersections
-bool intersection(Ray sRay, Sphere sph, inout Intersection point);									// Sphere Intersection
-bool intersection(Ray sRay, Cylinder cyl, inout Intersection point);								// Finite Cylinder Intersection
-bool intersection(Ray sRay, Triangle tri, inout Intersection point);								// Triangle Intersection
+bool intersection(Ray sRay, Sphere sph, inout Intersection point);		// Sphere Intersection
+bool intersection(Ray sRay, Cylinder cyl, inout Intersection point);	// Finite Cylinder Intersection
+bool intersection(Ray sRay, Triangle tri, inout Intersection point);	// Triangle Intersection
 
 // -- Used for finite cilinder intersection
 bool rayCylinderIntersectionT(Ray sRay, Cylinder cyl, inout float t);										// Infinite Cylinder Intersection
@@ -169,9 +173,11 @@ void intersectAll(Ray inRay, inout Intersection point)
 vec4 trace(inout Ray inRay)
 {
     vec4 color_final = vec4(0.01);
-    vec4 color_ambient = vec4(vec3(0.01), 1.0);
     Intersection point;
     point.hit_id = 0;
+    point.mat = ambient;
+    point.normal = vec3(0.0, 0.0, 0.0);
+    point.position = vec3(0.0, 0.0, 0.0);
     point.dist = MAX_DELTA;
 
     for (int i = 0; i < NUM_BOUNCES; i++) {
@@ -218,6 +224,7 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
     if (h < 0.0) { return false; }
 
     float t  = (-b - sqrt(h)) / 2.0;
+    point.mat = blend(sph.mat, point.mat);
 
     if (t > point.dist) { return false; }
 
@@ -225,7 +232,6 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
     point.position = sRay.origin + point.dist * sRay.direction;
     point.hit_id = sph.id;
     point.normal = (point.position - sph.center) / sph.radius;
-    point.mat = sph.mat;
     return true;
 }
 
@@ -253,6 +259,7 @@ bool intersection(Ray sRay, Triangle tri, inout Intersection point)
     if (v < 0.0 || u + v > 1.0) { return false; }
 
     float t  = dot(e2, q) * invDet;
+    point.mat = blend(tri.mat, point.mat);
 
     if (t > point.dist) { return false; }
 
@@ -261,7 +268,6 @@ bool intersection(Ray sRay, Triangle tri, inout Intersection point)
         point.position = sRay.origin + t * sRay.direction;
         point.hit_id = tri.id;
         point.normal = normalize(cross(e1, e2));
-        point.mat = tri.mat;
         return true;
     }
 
@@ -373,12 +379,12 @@ bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
 
     if (iSide || iTopCap || iButtomCap) {
         t = min(tSide, min(tButtom, tTop));
+        point.mat = blend(cyl.mat, point.mat);
 
         if (t > point.dist) { return false; }
 
         point.position = sRay.origin + t * sRay.direction;
         point.dist = t;
-        point.mat = cyl.mat;
         point.hit_id = cyl.id;
 
         if (t == tButtom || t == tTop) {
@@ -463,4 +469,16 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point)
     }
 
     return vec4(A * LCOL * NdotL * (K * MCOL + specular * (1.0 - K)), point.mat.alpha);
+}
+
+Material blend(Material m1, Material m2)
+{
+    Material final_mat;
+    final_mat.diffuse = m2.diffuse * m2.alpha + m1.diffuse * (1.0 - m2.alpha);
+    final_mat.specular = m2.specular * m2.alpha + m1.specular * (1.0 - m2.alpha);
+    final_mat.refractiveIndex = m1.refractiveIndex;
+    final_mat.reflectiveIndex = m1.reflectiveIndex;
+    final_mat.alpha = m1.alpha;
+    final_mat.id = m1.id;
+    return final_mat;
 }
