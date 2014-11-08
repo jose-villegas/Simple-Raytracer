@@ -1,5 +1,6 @@
 #version 400
 uniform vec3 iResolution;
+#define SHADOW_SOFTNESS 0.05
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
@@ -67,10 +68,10 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 4;
+const int NUM_BOUNCES = 256;
 // -- Input from .yml
 // Materials
-const int NUM_MATERIALS = 3;
+const int NUM_MATERIALS = 4;
 Material materials[NUM_MATERIALS];
 // Figures
 const int NUM_SPHERES = 4;
@@ -82,39 +83,14 @@ Cylinder cylinders[NUM_CYLINDERS];
 // Lights
 const int NUM_LIGHTS = 3;
 Light lights[NUM_LIGHTS];
-// Scene Initializer
-void initScene()
-{
-    // BEGIN:SCENEOBJECTS
-    // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.7, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 1.33, 0.5, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.2, 0.0, 0.3, 3);
-    // --
-    // YML SPHERES
-    spheres[0] = Sphere(materials[0], vec3(1.0, 0.0, 1.5), 1.0, 1);
-    spheres[1] = Sphere(materials[2], vec3(0.0, 0.0, -1.5), 1.0, 2);
-    spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.75, 3);
-    spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
-    // YML CYLINDERS
-    cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), 1.0, 1.0, -1.0, 6);
-    // --
-    // --
-    // YML LIGHTS
-    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.0, 1);
-    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.7, 2);
-    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.5, 3);
-    // --
-    // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
-    triangles[0].id = -1;
-    // --
-    // END::SCENEOBJECTS
-}
 // --
 // END:SCENEWRITER
+
 const vec4 color_ambient = vec4(vec3(0.01), 1.0);
 const Material ambient = Material(color_ambient.xyz, color_ambient.xyz, 0.0, 0.0, 1.0, 0);
+
+// SCENE INITIALIZER FROM SCENE.CPP
+void initScene();
 
 // Some relevant functions
 vec2 transform(vec2 p);						// Clip Coordinates Transform
@@ -141,21 +117,56 @@ vec4 trace(inout Ray inRay);
 void intersectAll(Ray inRay, inout Intersection point);
 
 // Shadow checks if something is in between the ray
-bool shadow(in Ray r, in Intersection x, in Light l);
+bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowPoint);
 
+// Global Camera and Ray
+Camera camera;
+Ray sRay;
+
+// Start Ray Trace Per Fragment
 void main()
 {
     vec4 color = vec4(0.1, 0.1, 0.1, 0.0);
-    Camera camera;
     camera.position = vec3(0.0, 0.0, 5.0);
     camera.direction = vec3(0.0, 0.0, -1.0);
-    Ray sRay;
     sRay.origin = camera.position;
     sRay.direction = normalize(vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction);
     // Init Scene
     initScene();
     // Start Ray-Tracing
     fragColor = trace(sRay);
+}
+
+// SCENE INITIALIZER FROM SCENE.CPP
+void initScene()
+{
+    // BEGIN:SCENEOBJECTS
+    // -- YML MATERIALS
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.7, 1);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.5, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.3, 3);
+    materials[3] = Material(vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.1, 3);
+    // --
+    // YML SPHERES
+    spheres[0] = Sphere(materials[0], vec3(1.0, 0.0, 1.5), 1.0, 1);
+    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, -1.5), 1.0, 2);
+    spheres[2] = Sphere(materials[2], vec3(2.0, 3.0, 0.0), 0.75, 3);
+    spheres[3] = Sphere(materials[3], vec3(-2.0, -3.0, 0.0), 0.5, 4);
+    // YML CYLINDERS
+    cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
+    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), 1.0, 1.0, -1.0, 6);
+    // --
+    // YML TRIANGLES
+    triangles[0] = Triangle(materials[3], vec3(4.0, 6.0, -2.0), vec3(5.0, 2.0, 0.0), vec3(7.0, 5.0, 0.0), 7);
+    // --
+    // YML LIGHTS
+    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.2, 1);
+    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.7, 2);
+    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.5, 3);
+    // --
+    // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
+    // --
+    // END::SCENEOBJECTS
 }
 
 void intersectAll(Ray inRay, inout Intersection point)
@@ -179,8 +190,6 @@ vec4 trace(inout Ray inRay)
     Intersection point;
     point.hit_id = 0;
     point.mat = ambient;
-    point.normal = vec3(0.0, 0.0, 0.0);
-    point.position = vec3(0.0, 0.0, 0.0);
     point.dist = MAX_DELTA;
 
     for (int i = 0; i < NUM_BOUNCES; i++) {
@@ -192,11 +201,11 @@ vec4 trace(inout Ray inRay)
         }
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
+            Intersection shadowPoint;
+            bool isShadowed = shadow(inRay, point, lights[l], shadowPoint);
             color_final += cooktorrance(inRay, lights[l], point);
 
-            if (shadow(inRay, point, lights[i])) {
-                color_final *= 0.633;
-            }
+            if (isShadowed) { color_final *= 0.66; }
         }
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
@@ -214,6 +223,7 @@ vec4 trace(inout Ray inRay)
         }
 
         point.dist = MAX_DELTA;
+        point.mat = ambient;
     }
 
     return color_final;
@@ -480,29 +490,30 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point)
 
 Material blend(Material m1, Material m2)
 {
-    Material final_mat;
-    final_mat.diffuse = m2.diffuse * m2.alpha + m1.diffuse * (1.0 - m2.alpha);
-    final_mat.specular = m2.specular * m2.alpha + m1.specular * (1.0 - m2.alpha);
-    final_mat.refractiveIndex = m1.refractiveIndex;
-    final_mat.reflectiveIndex = m1.reflectiveIndex;
-    final_mat.alpha = m1.alpha;
-    final_mat.id = m1.id;
+    if (m2.id == 0) { return m1; }
+
+    Material final_mat = m2;
+    final_mat.diffuse *= m2.alpha;
+    final_mat.diffuse += m1.diffuse * (m2.alpha - 1.0);
+    final_mat.specular *= m2.alpha;
+    final_mat.specular += m1.specular * (m2.alpha - 1.0);
     return final_mat;
 }
 
-bool shadow(in Ray r, in Intersection x, in Light l)
+bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowPoint)
 {
-    vec3 L = l.position - x.position;
+    vec3 L = light.position - point.position;
     float distance = length(L);
     L = normalize(L);
     Ray shadowRay;
-    Intersection lx = x;
+    Intersection lx = point;
     lx.dist = MAX_DELTA;
     shadowRay.origin = lx.position;
     shadowRay.direction = L;
     intersectAll(shadowRay, lx);
 
     if (lx.dist < MAX_DELTA && lx.dist < distance) {
+        shadowPoint = lx;
         return true;
     }
 
