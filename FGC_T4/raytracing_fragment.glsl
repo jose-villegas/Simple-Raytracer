@@ -14,6 +14,7 @@ struct Material {
     float refractiveIndex;
     float reflectiveIndex;
     float alpha;
+    int id;
 };
 struct Ray {
     vec3 origin;
@@ -23,12 +24,14 @@ struct Sphere {
     Material mat;
     vec3 center;
     float radius;
+    int id;
 };
 struct Cube {
     Material mat;
     vec2 facesX;
     vec2 facesY;
     vec2 facesZ;
+    int id;
 };
 struct Cylinder {
     Material mat;
@@ -37,12 +40,14 @@ struct Cylinder {
     float radius;
     float min;
     float max;
+    int id;
 };
 struct Triangle {
     Material mat;
     vec3 point1;
     vec3 point2;
     vec3 point3;
+    int id;
 };
 struct Camera {
     vec3 position;
@@ -52,6 +57,7 @@ struct Light {
     vec3 position;
     vec3 color;
     float intensity;
+    int id;
 };
 struct Intersection {
     vec3 position;
@@ -60,23 +66,45 @@ struct Intersection {
     Material mat;
 };
 // --
+const int NUM_BOUNCES = 1;
 // -- Input from .yml
 // Materials
-const int NUM_MATERIALS = 0;
-Material azul1 = Material(vec3(0.1, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
-Material verde1 = Material(vec3(0.1, 1.0, 0.1), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
-Material rojo1 = Material(vec3(1.0, 0.1, 0.1), vec3(1.0, 0.0, 0.3), 0.3, 0.0, 1.0);
+const int NUM_MATERIALS = 3;
+Material materials[NUM_MATERIALS];
 // Figures
-const int NUM_SPHERES = 0;
-const int NUM_TRIANGLES = 0;
-const int NUM_CYLINDERS = 0;
-Sphere sph = Sphere(verde1, vec3(1.5, 0.0, 0.0), 1.0);
-Sphere sph2 = Sphere(verde1, vec3(0.0, 0.0, 0.0), 2.0);
-Triangle tri = Triangle(rojo1, vec3(4.0, 4.0, 0.0), vec3(1.0, 2.0, 0.0), vec3(5.0, -1.0, 0.0));
-Cylinder cyl = Cylinder(azul1, vec3(-2.0, .0, 0.0), vec3(0.0, 1.0, 0.0), 1.0, -2.0, 2.0);
+const int NUM_SPHERES = 4;
+const int NUM_TRIANGLES = 1;
+const int NUM_CYLINDERS = 1;
+Sphere spheres[NUM_SPHERES];
+Triangle triangles[NUM_TRIANGLES];
+Cylinder cylinders[NUM_CYLINDERS];
 // Lights
-const int NUM_LIGHTS = 0;
-Light light = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0);
+const int NUM_LIGHTS = 1;
+Light lights[NUM_LIGHTS];
+// Scene Initializer
+void initScene()
+{
+    // BEGIN:SCENEOBJECTS
+    // -- YML MATERIALS
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 0.5, 1);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0, 3);
+    // --
+    // YML SPHERES
+    spheres[0] = Sphere(materials[0], vec3(1.5, 0.0, 0.0), 1.0, 1);
+    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, 1.5), 2.0, 2);
+    spheres[2] = Sphere(materials[2], vec3(2.0, 0.0, 0.0), 2.0, 3);
+    spheres[3] = Sphere(materials[0], vec3(0.0, -3.0, 0.0), 2.0, 4);
+    // --
+    // YML LIGHTS
+    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
+    // --
+    // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
+    triangles[0].id = -1;
+    cylinders[0].id = -1;
+    // --
+    // END::SCENEOBJECTS
+}
 // --
 // END:SCENEWRITER
 
@@ -98,7 +126,7 @@ bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float
 vec4 phong(Ray sRay, Light light, Intersection point);
 vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 
-// Recursive Ray-Trace
+// Ray-Trace
 vec4 trace(Ray inRay);
 
 void main()
@@ -110,23 +138,19 @@ void main()
     Ray sRay;
     sRay.origin = camera.position;
     sRay.direction = normalize(vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction);
-    // Light on TOP, only one for TESTING, TODO - MORE LIGHTS
-    Intersection point;
-
-    // TODO - DEPTH TESTING - REFLECTIONS - LIGHT BOUNCES - BlLENDING
-    if (intersection(sRay, sph, point)) {
-        color += cooktorrance(sRay, light, point);
-    }
-
-    fragColor = color;
+    // Init Scene
+    initScene();
+    // Start Ray-Tracing
+    fragColor = trace(sRay);
 }
 
 vec4 trace(Ray inRay)
 {
-    return vec4(1.0);
+    vec4 color_final = vec4(0.01);
+    Intersection point;
+    point.dist = MAX_DELTA;
+    return color_final;
 }
-
-
 
 bool intersection(Ray sRay, Sphere sph, inout Intersection point)
 {
@@ -137,7 +161,11 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
 
     if (h < 0.0) { return false; }
 
-    point.dist = (-b - sqrt(h)) / 2.0;
+    float t  = (-b - sqrt(h)) / 2.0;
+
+    if (t > point.dist) { return false; }
+
+    point.dist = t;
     point.position = sRay.origin + point.dist * sRay.direction;
     point.normal = (point.position - sph.center) / sph.radius;
     point.mat = sph.mat;
@@ -315,7 +343,7 @@ vec4 phong(Ray sRay, Light light, Intersection point)
     float cosAlpha = clamp(dot(E, R), 0.0, 1.0);
     float cosTheta = clamp(dot(point.normal, lightDirection), 0.0, 1.0);
     float att = 1.0 / (1.0 + (0.5 * d) + (0.25 * d * d)); // Light Attenuation
-    vec3 ambient = vec3(0.1, 0.1, 0.1);
+    vec3 ambient = vec3(0.01, 0.01, 0.01);
     vec3 diffuse = point.mat.diffuse * cosTheta;
     vec3 specular = point.mat.specular * pow(cosAlpha, 10.0);
     vec3 finalValue = (ambient + diffuse + specular) * light.color * att * light.intensity;
