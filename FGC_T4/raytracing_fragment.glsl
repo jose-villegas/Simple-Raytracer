@@ -67,7 +67,7 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 256;
+const int NUM_BOUNCES = 1;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 3;
@@ -75,7 +75,7 @@ Material materials[NUM_MATERIALS];
 // Figures
 const int NUM_SPHERES = 4;
 const int NUM_TRIANGLES = 1;
-const int NUM_CYLINDERS = 1;
+const int NUM_CYLINDERS = 2;
 Sphere spheres[NUM_SPHERES];
 Triangle triangles[NUM_TRIANGLES];
 Cylinder cylinders[NUM_CYLINDERS];
@@ -87,15 +87,19 @@ void initScene()
 {
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.9, 1.0, 1);
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 1);
     materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.5, 0.0, 1.0, 3);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 0.0, 1.0, 3);
     // --
     // YML SPHERES
     spheres[0] = Sphere(materials[0], vec3(2.5, 0.0, 0.0), 1.0, 1);
     spheres[1] = Sphere(materials[2], vec3(0.0, 0.0, -1.5), 1.0, 2);
     spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.3, 3);
     spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
+    // YML CYLINDERS
+    cylinders[0] = Cylinder(materials[0], vec3(3.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
+    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 6);
+    // --
     // --
     // YML LIGHTS
     lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
@@ -103,7 +107,6 @@ void initScene()
     // --
     // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
     triangles[0].id = -1;
-    cylinders[0].id = -1;
     // --
     // END::SCENEOBJECTS
 }
@@ -250,6 +253,8 @@ bool intersection(Ray sRay, Triangle tri, inout Intersection point)
 
     float t  = dot(e2, q) * invDet;
 
+    if (t > point.dist) { return false; }
+
     if (t > EPSILON) {
         point.dist = t;
         point.position = sRay.origin + t * sRay.direction;
@@ -275,8 +280,8 @@ vec3 perp(vec3 v)
 
 bool rayCylinderIntersectionT(Ray sRay, Cylinder cyl, inout float t)
 {
-    vec3 A = cyl.axis * cyl.min + cyl.center;	// Start Point or Buttom Cap Position
-    vec3 B = cyl.axis * cyl.max + cyl.center;	// End Point or Top Cap Position
+    vec3 A = cyl.axis * cyl.min + cyl.center;
+    vec3 B = cyl.axis * cyl.max + cyl.center;
     float extent = distance(A, B);
     vec3 W = (B - A) / extent;
     vec3 U = perp(W);
@@ -321,9 +326,10 @@ bool rayCylinderIntersectionT(Ray sRay, Cylinder cyl, inout float t)
 
 bool rayPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, inout float t)
 {
-    float tm = dot(planePoint - sRay.origin, planeNormal) / dot(planeNormal, sRay.direction);
-    t = tm >= 0.0 ? tm : t;
-    return tm >= 0.0;
+    float denom = dot(planeNormal, sRay.direction);
+    vec3 po = planePoint - sRay.origin;
+    t = dot(po, planeNormal) / denom;
+    return t >= 0.0;
 }
 
 bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float radius, inout float t)
@@ -351,14 +357,14 @@ bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
     iButtomCap = iTopCap = iSide = false;
 
     // Test intersection against cylinder caps
-    if (rayDiskPlaneIntersection(sRay, cyl.axis, A, cyl.radius, tButtom)) {iButtomCap = true;}
+    if (rayDiskPlaneIntersection(sRay, cyl.axis, A, cyl.radius, t)) {tButtom = t; iButtomCap = true;}
 
-    if (rayDiskPlaneIntersection(sRay, cyl.axis, B, cyl.radius, tTop)) {iTopCap = true;}
+    if (rayDiskPlaneIntersection(sRay, cyl.axis, B, cyl.radius, t)) {tTop = t; iTopCap = true;}
 
     if (rayCylinderIntersectionT(sRay, cyl, t)) {
         vec3 sidePos = sRay.origin + t * sRay.direction;
 
-        if (dot(sidePos - B, cyl.axis) < 0.0 && dot(sidePos - A, cyl.axis) > 0.0) {
+        if (dot(sidePos - B, cyl.axis) > 0.0 && dot(sidePos - A, cyl.axis) < 0.0) {
             iSide = true;
             tSide = t;
         }
@@ -366,6 +372,9 @@ bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
 
     if (iSide || iTopCap || iButtomCap) {
         t = min(tSide, min(tButtom, tTop));
+
+        if (t > point.dist) { return false; }
+
         point.position = sRay.origin + t * sRay.direction;
         point.dist = t;
         point.mat = cyl.mat;
