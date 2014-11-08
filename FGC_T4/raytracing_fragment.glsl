@@ -2,7 +2,7 @@
 uniform vec3 iResolution;
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
-#define EPSILON 0.000001
+#define EPSILON 1e-5
 out vec4 fragColor;			// Fragment Shader Output
 
 // DO NOT MODIFY THIS SECTION BELOW - SCENE.CPP WRITES HERE
@@ -88,13 +88,13 @@ void initScene()
     // -- YML MATERIALS
     materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 0.5, 1);
     materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0, 3);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.3, 0.0, 1.0, 3);
     // --
     // YML SPHERES
     spheres[0] = Sphere(materials[0], vec3(1.5, 0.0, 0.0), 1.0, 1);
-    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, 1.5), 2.0, 2);
-    spheres[2] = Sphere(materials[2], vec3(2.0, 0.0, 0.0), 2.0, 3);
-    spheres[3] = Sphere(materials[0], vec3(0.0, -3.0, 0.0), 2.0, 4);
+    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, -1.5), 1.0, 2);
+    spheres[2] = Sphere(materials[2], vec3(2.0, 3.0, 0.0), 0.3, 3);
+    spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // --
     // YML LIGHTS
     lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
@@ -128,6 +128,7 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 
 // Ray-Trace
 vec4 trace(Ray inRay);
+void intersectAll(Ray inRay, inout Intersection point);
 
 void main()
 {
@@ -144,11 +145,40 @@ void main()
     fragColor = trace(sRay);
 }
 
+void intersectAll(Ray inRay, inout Intersection point)
+{
+    for (int i = 0; i < NUM_SPHERES; i++) {
+        if (spheres[i].id != -1) { intersection(inRay, spheres[i], point); }
+    }
+
+    for (int i = 0; i < NUM_TRIANGLES; i++) {
+        if (triangles[i].id != -1) { intersection(inRay, triangles[i], point); }
+    }
+
+    for (int i = 0; i < NUM_CYLINDERS; i++) {
+        if (cylinders[i].id != -1) { intersection(inRay, cylinders[i], point); }
+    }
+}
+
 vec4 trace(Ray inRay)
 {
     vec4 color_final = vec4(0.01);
     Intersection point;
     point.dist = MAX_DELTA;
+
+    for (int i = 0; i < NUM_BOUNCES; i++) {
+        intersectAll(inRay, point);
+
+        // Break loop if ray didn't hit anything
+        if (point.dist  >= MAX_DELTA) {
+            break;
+        }
+
+        for (int l = 0; l < NUM_LIGHTS; l++) {
+            color_final += cooktorrance(inRay, lights[l], point);
+        }
+    }
+
     return color_final;
 }
 
