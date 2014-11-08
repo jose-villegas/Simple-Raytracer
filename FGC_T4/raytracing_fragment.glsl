@@ -3,7 +3,11 @@ uniform vec3 iResolution;
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 0.000001
+out vec4 fragColor;			// Fragment Shader Output
 
+// DO NOT MODIFY THIS SECTION BELOW - SCENE.CPP WRITES HERE
+// BEGIN:SCENEWRITER
+// -- Structures from Scene.h
 struct Material {
     vec3 diffuse;
     vec3 specular;
@@ -11,25 +15,21 @@ struct Material {
     float reflectiveIndex;
     float alpha;
 };
-
 struct Ray {
     vec3 origin;
     vec3 direction;
 };
-
 struct Sphere {
     Material mat;
     vec3 center;
     float radius;
 };
-
 struct Cube {
     Material mat;
     vec2 facesX;
     vec2 facesY;
     vec2 facesZ;
 };
-
 struct Cylinder {
     Material mat;
     vec3 center;
@@ -38,34 +38,48 @@ struct Cylinder {
     float min;
     float max;
 };
-
 struct Triangle {
     Material mat;
     vec3 point1;
     vec3 point2;
     vec3 point3;
 };
-
 struct Camera {
     vec3 position;
     vec3 direction;
 };
-
 struct Light {
     vec3 position;
     vec3 color;
     float intensity;
 };
-
 struct Intersection {
     vec3 position;
     vec3 normal;
     float dist;
     Material mat;
 };
+// --
+// -- Input from .yml
+// Materials
+const int NUM_MATERIALS = 0;
+Material azul1 = Material(vec3(0.1, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
+Material verde1 = Material(vec3(0.1, 1.0, 0.1), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
+Material rojo1 = Material(vec3(1.0, 0.1, 0.1), vec3(1.0, 0.0, 0.3), 0.3, 0.0, 1.0);
+// Figures
+const int NUM_SPHERES = 0;
+const int NUM_TRIANGLES = 0;
+const int NUM_CYLINDERS = 0;
+Sphere sph = Sphere(verde1, vec3(1.5, 0.0, 0.0), 1.0);
+Sphere sph2 = Sphere(verde1, vec3(0.0, 0.0, 0.0), 2.0);
+Triangle tri = Triangle(rojo1, vec3(4.0, 4.0, 0.0), vec3(1.0, 2.0, 0.0), vec3(5.0, -1.0, 0.0));
+Cylinder cyl = Cylinder(azul1, vec3(-2.0, .0, 0.0), vec3(0.0, 1.0, 0.0), 1.0, -2.0, 2.0);
+// Lights
+const int NUM_LIGHTS = 0;
+Light light = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0);
+// --
+// END:SCENEWRITER
 
-
-out vec4 fragColor;			// Fragment Shader Output
 vec2 transform(vec2 p);		// Clip Coordinates Transform
 vec3 perp(vec3 v);			// Perpendicular Vector
 
@@ -84,6 +98,8 @@ bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float
 vec4 phong(Ray sRay, Light light, Intersection point);
 vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 
+// Recursive Ray-Trace
+vec4 trace(Ray inRay);
 
 void main()
 {
@@ -94,15 +110,7 @@ void main()
     Ray sRay;
     sRay.origin = camera.position;
     sRay.direction = normalize(vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction);
-    Material azul1 = Material(vec3(0.1, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
-    Material verde1 = Material(vec3(0.1, 1.0, 0.1), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0);
-    Material rojo1 = Material(vec3(1.0, 0.1, 0.1), vec3(1.0, 0.0, 0.3), 0.3, 0.0, 1.0);
-    Sphere sph = Sphere(verde1, vec3(1.5, 0.0, 0.0), 1.0);
-    Sphere sph2 = Sphere(verde1, vec3(0.0, 0.0, 0.0), 2.0);
-    Triangle tri = Triangle(rojo1, vec3(4.0, 4.0, 0.0), vec3(1.0, 2.0, 0.0), vec3(5.0, -1.0, 0.0));
-    Cylinder cyl = Cylinder(azul1, vec3(-2.0, .0, 0.0), vec3(0.0, 1.0, 0.0), 1.0, -2.0, 2.0);
     // Light on TOP, only one for TESTING, TODO - MORE LIGHTS
-    Light light = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0);
     Intersection point;
 
     // TODO - DEPTH TESTING - REFLECTIONS - LIGHT BOUNCES - BlLENDING
@@ -112,6 +120,12 @@ void main()
 
     fragColor = color;
 }
+
+vec4 trace(Ray inRay)
+{
+    return vec4(1.0);
+}
+
 
 
 bool intersection(Ray sRay, Sphere sph, inout Intersection point)
