@@ -45,11 +45,13 @@ void Renderer::init()
     // Load Relevant Uniforms
     glUseProgram(rt.program);
     glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(1440, 900, 0)[0]);
+    // Draw Single Frame
+    glClear(GL_COLOR_BUFFER_BIT);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glfwSwapBuffers(window);
 
+    // Wait for Input
     while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
-        glfwSwapBuffers(window);
         glfwPollEvents();
     }
 

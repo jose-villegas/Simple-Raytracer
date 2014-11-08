@@ -67,7 +67,7 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 256;
+const int NUM_BOUNCES = 4;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 3;
@@ -122,9 +122,9 @@ vec3 perp(vec3 v);							// Perpendicular Vector
 Material blend(Material m1, Material m2);	// Alpha Blending
 
 // Figures Intersections
-bool intersection(Ray sRay, Sphere sph, inout Intersection point);		// Sphere Intersection
-bool intersection(Ray sRay, Cylinder cyl, inout Intersection point);	// Finite Cylinder Intersection
-bool intersection(Ray sRay, Triangle tri, inout Intersection point);	// Triangle Intersection
+bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point);		// Sphere Intersection
+bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point);	// Finite Cylinder Intersection
+bool intersectionTriangle(Ray sRay, Triangle tri, inout Intersection point);	// Triangle Intersection
 
 // -- Used for finite cilinder intersection
 bool rayCylinderIntersectionT(Ray sRay, Cylinder cyl, inout float t);										// Infinite Cylinder Intersection
@@ -139,6 +139,9 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 // Ray-Trace
 vec4 trace(inout Ray inRay);
 void intersectAll(Ray inRay, inout Intersection point);
+
+// Shadow checks if something is in between the ray
+bool shadow(in Ray r, in Intersection x, in Light l);
 
 void main()
 {
@@ -158,15 +161,15 @@ void main()
 void intersectAll(Ray inRay, inout Intersection point)
 {
     for (int i = 0; i < NUM_SPHERES; i++) {
-        if (spheres[i].id != -1) { intersection(inRay, spheres[i], point); }
+        if (spheres[i].id != -1) { intersectionSphere(inRay, spheres[i], point); }
     }
 
     for (int i = 0; i < NUM_TRIANGLES; i++) {
-        if (triangles[i].id != -1) { intersection(inRay, triangles[i], point); }
+        if (triangles[i].id != -1) { intersectionTriangle(inRay, triangles[i], point); }
     }
 
     for (int i = 0; i < NUM_CYLINDERS; i++) {
-        if (cylinders[i].id != -1) { intersection(inRay, cylinders[i], point); }
+        if (cylinders[i].id != -1) { intersectionCylinder(inRay, cylinders[i], point); }
     }
 }
 
@@ -190,6 +193,10 @@ vec4 trace(inout Ray inRay)
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
             color_final += cooktorrance(inRay, lights[l], point);
+
+            if (shadow(inRay, point, lights[i])) {
+                color_final *= 0.633;
+            }
         }
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
@@ -212,7 +219,7 @@ vec4 trace(inout Ray inRay)
     return color_final;
 }
 
-bool intersection(Ray sRay, Sphere sph, inout Intersection point)
+bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point)
 {
     if (point.hit_id == sph.id) { return false; } // Avoid Self Lighting
 
@@ -235,7 +242,7 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
     return true;
 }
 
-bool intersection(Ray sRay, Triangle tri, inout Intersection point)
+bool intersectionTriangle(Ray sRay, Triangle tri, inout Intersection point)
 {
     if (point.hit_id == tri.id) { return false; }
 
@@ -351,7 +358,7 @@ bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float
     return false;
 }
 
-bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
+bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point)
 {
     if (point.hit_id == cyl.id) { return false; }
 
@@ -481,4 +488,23 @@ Material blend(Material m1, Material m2)
     final_mat.alpha = m1.alpha;
     final_mat.id = m1.id;
     return final_mat;
+}
+
+bool shadow(in Ray r, in Intersection x, in Light l)
+{
+    vec3 L = l.position - x.position;
+    float distance = length(L);
+    L = normalize(L);
+    Ray shadowRay;
+    Intersection lx = x;
+    lx.dist = MAX_DELTA;
+    shadowRay.origin = lx.position;
+    shadowRay.direction = L;
+    intersectAll(shadowRay, lx);
+
+    if (lx.dist < MAX_DELTA && lx.dist < distance) {
+        return true;
+    }
+
+    return false;
 }
