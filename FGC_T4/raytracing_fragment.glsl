@@ -64,9 +64,10 @@ struct Intersection {
     vec3 normal;
     float dist;
     Material mat;
+    int hit_id;
 };
 // --
-const int NUM_BOUNCES = 1;
+const int NUM_BOUNCES = 256;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 3;
@@ -79,25 +80,26 @@ Sphere spheres[NUM_SPHERES];
 Triangle triangles[NUM_TRIANGLES];
 Cylinder cylinders[NUM_CYLINDERS];
 // Lights
-const int NUM_LIGHTS = 1;
+const int NUM_LIGHTS = 2;
 Light lights[NUM_LIGHTS];
 // Scene Initializer
 void initScene()
 {
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 0.5, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.3, 0.0, 1.0, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.3, 0.0, 1.0, 3);
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.9, 1.0, 1);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.5, 0.0, 1.0, 3);
     // --
     // YML SPHERES
-    spheres[0] = Sphere(materials[0], vec3(1.5, 0.0, 0.0), 1.0, 1);
-    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, -1.5), 1.0, 2);
-    spheres[2] = Sphere(materials[2], vec3(2.0, 3.0, 0.0), 0.3, 3);
+    spheres[0] = Sphere(materials[0], vec3(2.5, 0.0, 0.0), 1.0, 1);
+    spheres[1] = Sphere(materials[2], vec3(0.0, 0.0, -1.5), 1.0, 2);
+    spheres[2] = Sphere(materials[1], vec3(2.0, 3.0, 0.0), 0.3, 3);
     spheres[3] = Sphere(materials[0], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // --
     // YML LIGHTS
     lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
+    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(1.0, 1.0, 1.0), 1.0, 1);
     // --
     // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
     triangles[0].id = -1;
@@ -127,7 +129,7 @@ vec4 phong(Ray sRay, Light light, Intersection point);
 vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 
 // Ray-Trace
-vec4 trace(Ray inRay);
+vec4 trace(inout Ray inRay);
 void intersectAll(Ray inRay, inout Intersection point);
 
 void main()
@@ -160,10 +162,12 @@ void intersectAll(Ray inRay, inout Intersection point)
     }
 }
 
-vec4 trace(Ray inRay)
+vec4 trace(inout Ray inRay)
 {
     vec4 color_final = vec4(0.01);
+    vec4 color_ambient = vec4(vec3(0.01), 1.0);
     Intersection point;
+    point.hit_id = 0;
     point.dist = MAX_DELTA;
 
     for (int i = 0; i < NUM_BOUNCES; i++) {
@@ -175,8 +179,24 @@ vec4 trace(Ray inRay)
         }
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
-            color_final += cooktorrance(inRay, lights[l], point);
+            color_final += phong(inRay, lights[l], point);
         }
+
+        if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
+            break;
+        }
+
+        if (point.mat.reflectiveIndex > 0.0) {
+            inRay.origin = point.position;
+            inRay.direction = normalize(reflect(inRay.direction, point.normal));
+        }
+
+        if (point.mat.refractiveIndex > 0.0) {
+            inRay.origin = point.position;
+            inRay.direction = normalize(refract(inRay.direction, point.normal, point.mat.refractiveIndex));
+        }
+
+        point.dist = MAX_DELTA;
     }
 
     return color_final;
@@ -184,6 +204,8 @@ vec4 trace(Ray inRay)
 
 bool intersection(Ray sRay, Sphere sph, inout Intersection point)
 {
+    if (point.hit_id == sph.id) { return false; } // Avoid Self Lighting
+
     vec3 oc = sRay.origin - sph.center;
     float b = 2.0 * dot(oc, sRay.direction);
     float c = dot(oc, oc) - sph.radius * sph.radius;
@@ -197,6 +219,7 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
 
     point.dist = t;
     point.position = sRay.origin + point.dist * sRay.direction;
+    point.hit_id = sph.id;
     point.normal = (point.position - sph.center) / sph.radius;
     point.mat = sph.mat;
     return true;
@@ -204,6 +227,8 @@ bool intersection(Ray sRay, Sphere sph, inout Intersection point)
 
 bool intersection(Ray sRay, Triangle tri, inout Intersection point)
 {
+    if (point.hit_id == tri.id) { return false; }
+
     // Möller–Trumbore Algorithm
     vec3 e1 = tri.point2 - tri.point1;
     vec3 e2 = tri.point3 - tri.point1;
@@ -228,6 +253,7 @@ bool intersection(Ray sRay, Triangle tri, inout Intersection point)
     if (t > EPSILON) {
         point.dist = t;
         point.position = sRay.origin + t * sRay.direction;
+        point.hit_id = tri.id;
         point.normal = normalize(cross(e1, e2));
         point.mat = tri.mat;
         return true;
@@ -314,6 +340,8 @@ bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float
 
 bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
 {
+    if (point.hit_id == cyl.id) { return false; }
+
     vec3 A = cyl.axis * cyl.min + cyl.center;
     vec3 B = cyl.axis * cyl.max + cyl.center;
     vec3 buttomCapPos, topCapPos, sidePos, sideNormal;
@@ -341,6 +369,7 @@ bool intersection(Ray sRay, Cylinder cyl, inout Intersection point)
         point.position = sRay.origin + t * sRay.direction;
         point.dist = t;
         point.mat = cyl.mat;
+        point.hit_id = cyl.id;
 
         if (t == tButtom || t == tTop) {
             point.normal = cyl.axis;
@@ -390,7 +419,7 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point)
     vec3 MCOL = point.mat.diffuse + point.mat.specular;
     float R = 0.3;
     float F = 1.0;
-    float K = 0.9;
+    float K = 0.8;
     // Specify some other variables
     L = normalize(L);
     vec3 N = point.normal;
