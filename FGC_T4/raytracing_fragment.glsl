@@ -1,7 +1,7 @@
 #version 400
 uniform vec3 iResolution;
 #define ambocce 0.2
-#define SHADOW_SOFTNESS 0.0005
+#define SHADOW_SOFTNESS 0.05
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
@@ -146,9 +146,9 @@ void initScene()
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
     materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.5, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.3, 3);
-    materials[3] = Material(vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.1, 3);
+    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 1.7, 0.0, 0.5, 2);
+    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 0.33, 0.3, 3);
+    materials[3] = Material(vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0), 0.0, 0.33, 0.1, 3);
     // --
     // YML SPHERES
     spheres[0] = Sphere(materials[0], vec3(1.0, 0.0, 1.5), 1.0, 1);
@@ -157,7 +157,7 @@ void initScene()
     spheres[3] = Sphere(materials[3], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // YML CYLINDERS
     cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[0], vec3(-3.5, -2.0, 0.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
+    cylinders[1] = Cylinder(materials[1], vec3(-3.5, -2.0, 0.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
     // --
     // YML TRIANGLES
     triangles[0] = Triangle(materials[3], vec3(-16.0, 9.0, -3.0), vec3(14.0, -10.0, -3.0), vec3(14.0, 9.0, -3.0), 7);
@@ -210,7 +210,7 @@ vec4 trace(inout Ray inRay)
             bool isShadowed = shadow(inRay, point, lights[l], shadowPoint);
             color_final += cooktorrance(inRay, lights[l], point);
 
-            if (isShadowed) { shadowAcc *= 0.66/*smoothstep(0.0, length(lights[l].position), shadowPoint.dist)*/; }
+            if (isShadowed) { shadowAcc *= 0.66/* smoothstep(length(lights[l].position) * SHADOW_SOFTNESS, length(lights[l].position), shadowPoint.dist)*/; }
         }
 
         color_final *= 0.5 + 0.5 * shadowAcc;
@@ -226,7 +226,7 @@ vec4 trace(inout Ray inRay)
 
         if (point.mat.refractiveIndex > 0.0) {
             inRay.origin = point.position;
-            inRay.direction = normalize(refract(inRay.direction, point.normal, point.mat.refractiveIndex));
+            inRay.direction = normalize(refract(inRay.direction, point.normal, 1.0 / point.mat.refractiveIndex));
         }
 
         point.dist = MAX_DELTA;
@@ -412,9 +412,9 @@ bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point)
         point.hit_id = cyl.id;
 
         if (t == tButtom) {
-            point.normal = -cyl.axis;
-        } else if (t == tTop) {
             point.normal = +cyl.axis;
+        } else if (t == tTop) {
+            point.normal = -cyl.axis;
         } else {
             vec3 v = (B - A) / distance(A, B);
             float tn = dot(point.position - A, v);
