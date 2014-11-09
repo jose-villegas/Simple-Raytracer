@@ -17,7 +17,7 @@ void Renderer::init()
     }
 
     glfwWindowHint(GLFW_SAMPLES, 16); // Anti Alias
-    GLFWwindow *window = glfwCreateWindow(1440, 900, "Raytracing - RT", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(1550, 900, "Raytracing - RT", NULL, NULL);
 
     if (!window) {
         glfwTerminate();
@@ -44,7 +44,7 @@ void Renderer::init()
     setupRenderQuad();
     // Load Relevant Uniforms
     glUseProgram(rt.program);
-    glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(1440, 900, 0)[0]);
+    glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(1550, 900, 0)[0]);
     // Draw Single Frame
     glClear(GL_COLOR_BUFFER_BIT);
     glDrawArrays(GL_TRIANGLES, 0, 6);

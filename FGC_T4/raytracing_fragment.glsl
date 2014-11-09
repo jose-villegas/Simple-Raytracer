@@ -1,6 +1,7 @@
 #version 400
 uniform vec3 iResolution;
-#define SHADOW_SOFTNESS 0.05
+#define ambocce 0.2
+#define SHADOW_SOFTNESS 0.0005
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
@@ -68,14 +69,14 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 256;
+const int NUM_BOUNCES = 8;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 4;
 Material materials[NUM_MATERIALS];
 // Figures
 const int NUM_SPHERES = 4;
-const int NUM_TRIANGLES = 1;
+const int NUM_TRIANGLES = 2;
 const int NUM_CYLINDERS = 2;
 Sphere spheres[NUM_SPHERES];
 Triangle triangles[NUM_TRIANGLES];
@@ -93,6 +94,7 @@ const Material ambient = Material(color_ambient.xyz, color_ambient.xyz, 0.0, 0.0
 void initScene();
 
 // Some relevant functions
+float inverseMix(float a, float b, float x);// mix() inverse
 vec2 transform(vec2 p);						// Clip Coordinates Transform
 vec3 perp(vec3 v);							// Perpendicular Vector
 Material blend(Material m1, Material m2);	// Alpha Blending
@@ -115,6 +117,7 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 // Ray-Trace
 vec4 trace(inout Ray inRay);
 void intersectAll(Ray inRay, inout Intersection point);
+vec4 sceneInterpolateLerp(Ray inRay);
 
 // Shadow checks if something is in between the ray
 bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowPoint);
@@ -142,7 +145,7 @@ void initScene()
 {
     // BEGIN:SCENEOBJECTS
     // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.7, 1);
+    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 1);
     materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 0.1, 0.0, 0.5, 2);
     materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.3, 3);
     materials[3] = Material(vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0), 0.0, 1.33, 0.1, 3);
@@ -154,13 +157,14 @@ void initScene()
     spheres[3] = Sphere(materials[3], vec3(-2.0, -3.0, 0.0), 0.5, 4);
     // YML CYLINDERS
     cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[1], vec3(-3.0, 0.0, -1.0), vec3(1.0, 0.0, 0.0), 1.0, 1.0, -1.0, 6);
+    cylinders[1] = Cylinder(materials[0], vec3(-3.5, -2.0, 0.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
     // --
     // YML TRIANGLES
-    triangles[0] = Triangle(materials[3], vec3(4.0, 6.0, -2.0), vec3(5.0, 2.0, 0.0), vec3(7.0, 5.0, 0.0), 7);
+    triangles[0] = Triangle(materials[3], vec3(-16.0, 9.0, -3.0), vec3(14.0, -10.0, -3.0), vec3(14.0, 9.0, -3.0), 7);
+    triangles[1] = Triangle(materials[3], vec3(-16.0, -10.0, -3.0), vec3(14.0, -10.0, -3.0), vec3(-16.0, 9.0, -3.0), 8);
     // --
     // YML LIGHTS
-    lights[0] = Light(vec3(0.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.2, 1);
+    lights[0] = Light(vec3(5.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.2, 1);
     lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.7, 2);
     lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.5, 3);
     // --
@@ -175,12 +179,12 @@ void intersectAll(Ray inRay, inout Intersection point)
         if (spheres[i].id != -1) { intersectionSphere(inRay, spheres[i], point); }
     }
 
-    for (int i = 0; i < NUM_TRIANGLES; i++) {
-        if (triangles[i].id != -1) { intersectionTriangle(inRay, triangles[i], point); }
-    }
-
     for (int i = 0; i < NUM_CYLINDERS; i++) {
         if (cylinders[i].id != -1) { intersectionCylinder(inRay, cylinders[i], point); }
+    }
+
+    for (int i = 0; i < NUM_TRIANGLES; i++) {
+        if (triangles[i].id != -1) { intersectionTriangle(inRay, triangles[i], point); }
     }
 }
 
@@ -191,6 +195,7 @@ vec4 trace(inout Ray inRay)
     point.hit_id = 0;
     point.mat = ambient;
     point.dist = MAX_DELTA;
+    float shadowAcc = 1.0;
 
     for (int i = 0; i < NUM_BOUNCES; i++) {
         intersectAll(inRay, point);
@@ -205,8 +210,10 @@ vec4 trace(inout Ray inRay)
             bool isShadowed = shadow(inRay, point, lights[l], shadowPoint);
             color_final += cooktorrance(inRay, lights[l], point);
 
-            if (isShadowed) { color_final *= 0.66; }
+            if (isShadowed) { shadowAcc *= 0.66/*smoothstep(0.0, length(lights[l].position), shadowPoint.dist)*/; }
         }
+
+        color_final *= 0.5 + 0.5 * shadowAcc;
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
             break;
@@ -395,8 +402,8 @@ bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point)
     }
 
     if (iSide || iTopCap || iButtomCap) {
-        t = min(tSide, min(tButtom, tTop));
         point.mat = blend(cyl.mat, point.mat);
+        t = min(tSide, min(tButtom, tTop));
 
         if (t > point.dist) { return false; }
 
@@ -404,8 +411,10 @@ bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point)
         point.dist = t;
         point.hit_id = cyl.id;
 
-        if (t == tButtom || t == tTop) {
-            point.normal = cyl.axis;
+        if (t == tButtom) {
+            point.normal = -cyl.axis;
+        } else if (t == tTop) {
+            point.normal = +cyl.axis;
         } else {
             vec3 v = (B - A) / distance(A, B);
             float tn = dot(point.position - A, v);
