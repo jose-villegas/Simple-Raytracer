@@ -4,7 +4,7 @@
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
 #define ANTIALIAS
-#define SUBPIXEL_DIST 0.55
+#define SUBPIXEL_DIST 0.33333333
 uniform vec3 iResolution;
 
 layout(location = 0) out vec4 fragColor;			// Fragment Shader Output
@@ -251,9 +251,14 @@ vec4 trace(in Ray inRay)
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
             isShadowed = shadow(inRay, point, lights[l], shadowPoint);
-            color_final += cooktorrance(inRay, lights[l], point);
 
-            if (isShadowed) { shadowAcc *= smoothstep(0.0, length(lights[l].position), shadowPoint.dist - dot(lights[l].position, point.normal)); }
+            if (!isShadowed  || isShadowed && point.mat.reflectiveIndex > 0.0 || isShadowed && point.mat.refractiveIndex > 0.0) {
+                color_final += cooktorrance(inRay, lights[l], point);
+            }
+
+            if (isShadowed && point.mat.reflectiveIndex > 0.0 || isShadowed && point.mat.refractiveIndex > 0.0) {
+                shadowAcc *= smoothstep(0.0, length(lights[l].position), shadowPoint.dist - dot(lights[l].position, point.normal));
+            }
         }
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
@@ -272,6 +277,8 @@ vec4 trace(in Ray inRay)
 
         point.dist = MAX_DELTA;
         point.mat = ambient;
+        point.mat.refractiveIndex = 0.0;
+        point.mat.reflectiveIndex = 0.0;
     }
 
     return color_ambient + color_final * (0.5 + 0.5 * shadowAcc);;
