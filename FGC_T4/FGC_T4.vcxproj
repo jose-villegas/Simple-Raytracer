@@ -76,6 +76,7 @@
     <ClInclude Include="Scene.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="camera01.tga" />
     <None Include="raytracing_fragment.glsl" />
     <None Include="test.yml" />
   </ItemGroup>

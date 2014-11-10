@@ -1,11 +1,13 @@
 #version 400
-uniform vec3 iResolution;
-#define ambocce 0.2
-#define SHADOW_SOFTNESS 0.05
+#define NUM_BOUNCES 16
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
-out vec4 fragColor;			// Fragment Shader Output
+#define ANTIALIAS
+#define SUBPIXEL_DIST 0.55
+uniform vec3 iResolution;
+
+layout(location = 0) out vec4 fragColor;			// Fragment Shader Output
 
 // DO NOT MODIFY THIS SECTION BELOW - SCENE.CPP WRITES HERE
 // BEGIN:SCENEWRITER
@@ -69,7 +71,6 @@ struct Intersection {
     int hit_id;
 };
 // --
-const int NUM_BOUNCES = 8;
 // -- Input from .yml
 // Materials
 const int NUM_MATERIALS = 4;
@@ -115,12 +116,17 @@ vec4 phong(Ray sRay, Light light, Intersection point);
 vec4 cooktorrance(Ray sRay, Light light, Intersection point);
 
 // Ray-Trace
-vec4 trace(inout Ray inRay);
+vec4 trace(in Ray inRay);
 void intersectAll(Ray inRay, inout Intersection point);
 vec4 sceneInterpolateLerp(Ray inRay);
 
 // Shadow checks if something is in between the ray
 bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowPoint);
+
+// Super Sampling Functions
+vec2 calcSubPixel(vec2 p, float x, float y);
+void sampleSubPixels(Ray inr, vec2 frag, Camera cam, inout vec4 subPixel[9]);
+void superSample(Ray inr, vec2 frag, Camera cam, inout vec4 color);
 
 // Global Camera and Ray
 Camera camera;
@@ -129,15 +135,20 @@ Ray sRay;
 // Start Ray Trace Per Fragment
 void main()
 {
-    vec4 color = vec4(0.1, 0.1, 0.1, 0.0);
-    camera.position = vec3(0.0, 0.0, 5.0);
+    vec4 color = vec4(0.0);
+    vec2 fragCoord = gl_FragCoord.xy;
+    vec2 uv = transform(fragCoord);
+    camera.position = vec3(-1.1, -0.5, 7.0);
     camera.direction = vec3(0.0, 0.0, -1.0);
     sRay.origin = camera.position;
-    sRay.direction = normalize(vec3(transform(gl_FragCoord.xy), 0.0) + camera.direction);
     // Init Scene
     initScene();
-    // Start Ray-Tracing
-    fragColor = trace(sRay);
+#ifdef ANTIALIAS
+    superSample(sRay, fragCoord, camera, color);
+#else
+    color = trace(sRay);
+#endif
+    fragColor = color;
 }
 
 // SCENE INITIALIZER FROM SCENE.CPP
@@ -173,6 +184,38 @@ void initScene()
     // END::SCENEOBJECTS
 }
 
+vec2 calcSubPixel(vec2 p, float x, float y)
+{
+    return transform(vec2(p.x - x, p.y + y));
+}
+
+float sps = 0.55;
+
+void sampleSubPixels(Ray inr, vec2 frag, Camera cam, inout vec4 subPixel[9])
+{
+    int count = 0;
+
+    for (int i = -1; i < 2; i++) {
+        for (int j = -1; j < 2; j++) {
+            if (i == j && i == 0) { break; } // Don't Trace Center Pixel
+
+            inr.direction = normalize(vec3(calcSubPixel(frag, sps * i, sps * j), 0.0) + cam.direction);
+            subPixel[count++] = trace(inr);
+        }
+    }
+}
+
+void superSample(Ray inr, vec2 frag, Camera cam, inout vec4 color)
+{
+    vec4 subPixel[9] = vec4[9](vec4(0.0), vec4(0.0), vec4(0.0),
+                               vec4(0.0), vec4(0.0), vec4(0.0),
+                               vec4(0.0), vec4(0.0), vec4(0.0));
+    sampleSubPixels(inr, frag, cam,  subPixel);
+    int count = 0;
+
+    for (int i = 0; i < 9; i++) { color += subPixel[i] / 9.0; }
+}
+
 void intersectAll(Ray inRay, inout Intersection point)
 {
     for (int i = 0; i < NUM_SPHERES; i++) {
@@ -188,14 +231,15 @@ void intersectAll(Ray inRay, inout Intersection point)
     }
 }
 
-vec4 trace(inout Ray inRay)
+vec4 trace(in Ray inRay)
 {
-    vec4 color_final = vec4(0.01);
-    Intersection point;
+    vec4 color_final = vec4(0.0);
+    Intersection point, shadowPoint;
     point.hit_id = 0;
     point.mat = ambient;
     point.dist = MAX_DELTA;
     float shadowAcc = 1.0;
+    bool isShadowed;
 
     for (int i = 0; i < NUM_BOUNCES; i++) {
         intersectAll(inRay, point);
@@ -206,14 +250,11 @@ vec4 trace(inout Ray inRay)
         }
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
-            Intersection shadowPoint;
-            bool isShadowed = shadow(inRay, point, lights[l], shadowPoint);
+            isShadowed = shadow(inRay, point, lights[l], shadowPoint);
             color_final += cooktorrance(inRay, lights[l], point);
 
-            if (isShadowed) { shadowAcc *= 0.66/* smoothstep(length(lights[l].position) * SHADOW_SOFTNESS, length(lights[l].position), shadowPoint.dist)*/; }
+            if (isShadowed) { shadowAcc *= smoothstep(0.0, length(lights[l].position), shadowPoint.dist - dot(lights[l].position, point.normal)); }
         }
-
-        color_final *= 0.5 + 0.5 * shadowAcc;
 
         if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
             break;
@@ -233,7 +274,7 @@ vec4 trace(inout Ray inRay)
         point.mat = ambient;
     }
 
-    return color_final;
+    return color_ambient + color_final * (0.5 + 0.5 * shadowAcc);;
 }
 
 bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point)

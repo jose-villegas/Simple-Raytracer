@@ -38,5 +38,8 @@
     <None Include="test.yml">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="camera01.tga">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
