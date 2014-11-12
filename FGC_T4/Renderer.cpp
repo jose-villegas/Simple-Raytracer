@@ -10,8 +10,9 @@ Renderer::~Renderer(void)
 {
 }
 
-void Renderer::init()
+void Renderer::init(Scene::SceneManager sceneElements)
 {
+    this->sceneData = sceneElements;
     const int renderWidth = 2560;
     const int renderHeight = 1440;
     const int windowWidth = 1;
@@ -50,15 +51,24 @@ void Renderer::init()
     // Load Relevant Uniforms
     glUseProgram(rt.program);
     glUniform3fv(rt.uniformLocs["iResolution"], 1, &glm::vec3(renderWidth, renderHeight, 0)[0]);
+
     // Draw Single Frame
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-    glViewport(0, 0, renderWidth, renderHeight);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    // Reset Render To Screen
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    for (int i = 0; i < sceneData.cameras.size(); i++) {
+        glUniform3fv(rt.uniformLocs["cameraPosition"], 1, &sceneData.cameras[i].position[0]);
+        glUniform3fv(rt.uniformLocs["cameraDirection"], 1, &sceneData.cameras[i].direction[0]);
+        glUniform1f(rt.uniformLocs["enableAntiAliasing"], sceneData.cameras[i].enableAntiAlias);
+        glUniform1f(rt.uniformLocs["enableShadows"], sceneData.cameras[i].enableShadows);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+        glViewport(0, 0, renderWidth, renderHeight);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+        // Reset Render To Screen
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glfwSwapBuffers(window);
+        // Save Render
+        toFile("camera" + std::to_string(i) + ".tga", renderWidth, renderHeight);
+    }
+
     glViewport(0, 0, windowWidth, windowHeight);
-    // Save Render
-    toFile("camera01.tga", renderWidth, renderHeight);
     // Destory OGL Context
     glfwDestroyWindow(window);
     glfwTerminate();
@@ -82,6 +92,8 @@ void Renderer::loadGLSLShader()
     ifs.open("raytracing_fragment.glsl");
     rt.source.assign((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
     ifs.close();
+    size_t GLSL_RECEIVER_BLOCK = rt.source.find("BEGIN:SCENEPARAMS");
+    rt.source.insert(GLSL_RECEIVER_BLOCK + std::string("BEGIN:SCENEPARAMS").size(), this->sceneData.toGLSL());
     const char *c_shaderSource = rt.source.c_str();
     rt.fShader = glCreateShader(GL_FRAGMENT_SHADER);
     glShaderSource(rt.fShader, 1, &c_shaderSource, NULL);
@@ -90,6 +102,10 @@ void Renderer::loadGLSLShader()
     glAttachShader(rt.program, rt.fShader);
     glLinkProgram(rt.program);
     rt.uniformLocs["iResolution"] = glGetUniformLocation(rt.program, "iResolution");
+    rt.uniformLocs["cameraPosition"] = glGetUniformLocation(rt.program, "cameraPosition");
+    rt.uniformLocs["cameraDirection"] = glGetUniformLocation(rt.program, "cameraDirection");
+    rt.uniformLocs["enableAntiAliasing"] = glGetUniformLocation(rt.program, "enableAntiAliasing");
+    rt.uniformLocs["enableShadows"] = glGetUniformLocation(rt.program, "enableShadows");
     logShaderCompilerErrors();
 }
 

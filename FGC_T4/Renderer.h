@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iostream>
 #include <unordered_map>
+#include "Scene.h"
 
 class Shader {
     public:
@@ -24,17 +25,15 @@ class Renderer {
         GLuint FBO;		// Main Frame Buffer Object
         GLuint CBF;		// Color Buffer
         GLuint RTX;		// Render Texture
-        GLuint MFBO;	// Multi-Sample FBO
-        GLuint MTX;		// Multi-Sample Texture
-        GLuint MCBF;	// Multi-Sample Color Buffer
         GLuint DBF;		// Draw Buffer
+        Scene::SceneManager sceneData;
         void setupRenderQuad();
         void loadGLSLShader();
         void createRenderTarget(int width, int height);
         void logShaderCompilerErrors();
         static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
     public:
-        void init();
+        void init(Scene::SceneManager sceneElements);
         void terminate();
         void toFile(std::string filename, int renderWidth, int renderHeight);
         Renderer(void);

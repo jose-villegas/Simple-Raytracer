@@ -31,6 +31,7 @@ namespace Scene {
             public:
                 glm::vec3 center;
                 float radius;
+                std::string toGLSL(int id);
         };
 
         class Cylinder : public Figure {
@@ -40,11 +41,13 @@ namespace Scene {
                 float radius;
                 float min;
                 float max;
+                std::string toGLSL(int id);
         };
 
         class Triangle : public Figure {
             public:
                 glm::vec3 points[3];
+                std::string toGLSL(int id);
         };
 
         class Cube : public Figure {
@@ -52,6 +55,7 @@ namespace Scene {
                 glm::vec2 facesX;
                 glm::vec2 facesY;
                 glm::vec2 facesZ;
+                std::string toGLSL(int id);
         };
     };
 
@@ -71,12 +75,15 @@ namespace Scene {
             float reflectionIndex;
             float refractionIndex;
             float alphaValue;
+            std::string toGLSL();
     };
 
     class Light {
         public:
             glm::vec3 position;
             glm::vec3 color;
+            float intensity;
+            std::string toGLSL(int id);
     };
 
     class SceneManager {
@@ -88,6 +95,7 @@ namespace Scene {
             std::vector<Figures::Sphere> spheres;
             std::vector<Figures::Cylinder> cylinders;
             std::vector<Figures::Cube> cubes;
+            std::string toGLSL();
     };
 
     class Serializer : private Parser {

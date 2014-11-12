@@ -1,16 +1,17 @@
 #version 400
-#define NUM_BOUNCES 16
+#define NUM_BOUNCES 4
 #define PI 3.1415926535897932384626433832795
 #define MAX_DELTA 1e20
 #define EPSILON 1e-5
-#define ANTIALIAS
-#define SUBPIXEL_DIST 0.33333333
+#define SUBPIXEL_DIST 0.5
 uniform vec3 iResolution;
+uniform vec3 cameraPosition = vec3(0.0, 0.0, 10.0);
+uniform vec3 cameraDirection = vec3(0.0, 0.0, -1.0);
+uniform float enableShadows = 1;
+uniform float enableAntiAliasing = 1;
 
 layout(location = 0) out vec4 fragColor;			// Fragment Shader Output
 
-// DO NOT MODIFY THIS SECTION BELOW - SCENE.CPP WRITES HERE
-// BEGIN:SCENEWRITER
 // -- Structures from Scene.h
 struct Material {
     vec3 diffuse;
@@ -18,11 +19,12 @@ struct Material {
     float refractiveIndex;
     float reflectiveIndex;
     float alpha;
-    int id;
 };
 struct Ray {
     vec3 origin;
     vec3 direction;
+    vec3 color;
+    float intensity;
 };
 struct Sphere {
     Material mat;
@@ -70,35 +72,19 @@ struct Intersection {
     Material mat;
     int hit_id;
 };
-// --
-// -- Input from .yml
-// Materials
-const int NUM_MATERIALS = 4;
-Material materials[NUM_MATERIALS];
-// Figures
-const int NUM_SPHERES = 4;
-const int NUM_TRIANGLES = 2;
-const int NUM_CYLINDERS = 2;
-Sphere spheres[NUM_SPHERES];
-Triangle triangles[NUM_TRIANGLES];
-Cylinder cylinders[NUM_CYLINDERS];
-// Lights
-const int NUM_LIGHTS = 3;
-Light lights[NUM_LIGHTS];
-// --
-// END:SCENEWRITER
 
-const vec4 color_ambient = vec4(vec3(0.01), 1.0);
-const Material ambient = Material(color_ambient.xyz, color_ambient.xyz, 0.0, 0.0, 1.0, 0);
+// BEGIN:SCENEPARAMS
+// END:SCENEPARAMS
 
-// SCENE INITIALIZER FROM SCENE.CPP
-void initScene();
+const vec4 color_ambient = vec4(vec3(0.1), 1.0);
+const Material ambient = Material(color_ambient.xyz, color_ambient.xyz, 0.0, 0.0, color_ambient.w);
+
 
 // Some relevant functions
-float inverseMix(float a, float b, float x);// mix() inverse
-vec2 transform(vec2 p);						// Clip Coordinates Transform
-vec3 perp(vec3 v);							// Perpendicular Vector
-Material blend(Material m1, Material m2);	// Alpha Blending
+float inverseMix(float a, float b, float x);	// mix() inverse
+vec2 transform(vec2 p);							// Clip Coordinates Transform
+vec3 perp(vec3 v);								// Perpendicular Vector
+vec4 blend(in vec4 fg, in vec4 bg);				// Alpha Blending
 
 // Figures Intersections
 bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point);		// Sphere Intersection
@@ -112,8 +98,8 @@ bool rayDiskPlaneIntersection(Ray sRay, vec3 planeNormal, vec3 planePoint, float
 // --
 
 // Lighting Models
-vec4 phong(Ray sRay, Light light, Intersection point);
-vec4 cooktorrance(Ray sRay, Light light, Intersection point);
+vec3 phong(Ray sRay, Light light, Intersection point);
+vec3 cooktorrance(Ray sRay, Light light, Intersection point);
 
 // Ray-Trace
 vec4 trace(in Ray inRay);
@@ -128,60 +114,29 @@ vec2 calcSubPixel(vec2 p, float x, float y);
 void sampleSubPixels(Ray inr, vec2 frag, Camera cam, inout vec4 subPixel[9]);
 void superSample(Ray inr, vec2 frag, Camera cam, inout vec4 color);
 
-// Global Camera and Ray
-Camera camera;
-Ray sRay;
-
 // Start Ray Trace Per Fragment
 void main()
 {
     vec4 color = vec4(0.0);
     vec2 fragCoord = gl_FragCoord.xy;
     vec2 uv = transform(fragCoord);
-    camera.position = vec3(-1.1, -0.5, 7.0);
-    camera.direction = vec3(0.0, 0.0, -1.0);
-    sRay.origin = camera.position;
+    Camera camera = Camera(cameraPosition, cameraDirection);
+    Ray sRay = Ray(camera.position, normalize(vec3(uv, 0.0) + camera.direction), vec3(0.0), 1.0);
     // Init Scene
     initScene();
-#ifdef ANTIALIAS
-    superSample(sRay, fragCoord, camera, color);
-#else
-    color = trace(sRay);
-#endif
+
+    if (enableAntiAliasing > 0.0) {
+        superSample(sRay, fragCoord, camera, color);
+    } else {
+        color = trace(sRay);
+    }
+
     fragColor = color;
 }
 
-// SCENE INITIALIZER FROM SCENE.CPP
-void initScene()
+vec4 blend(vec4 fg, vec4 bg)
 {
-    // BEGIN:SCENEOBJECTS
-    // -- YML MATERIALS
-    materials[0] = Material(vec3(0.0, 0.0, 1.0), vec3(0.5, 1.0, 0.5), 0.0, 0.0, 1.0, 1);
-    materials[1] = Material(vec3(0.0, 1.0, 0.0), vec3(0.5, 1.0, 0.5), 1.7, 0.0, 0.5, 2);
-    materials[2] = Material(vec3(1.0, 0.0, 0.0), vec3(1.0, 1.0, 1.0), 0.0, 0.33, 0.3, 3);
-    materials[3] = Material(vec3(1.0, 1.0, 1.0), vec3(1.0, 1.0, 1.0), 0.0, 0.33, 0.1, 3);
-    // --
-    // YML SPHERES
-    spheres[0] = Sphere(materials[0], vec3(1.0, 0.0, 1.5), 1.0, 1);
-    spheres[1] = Sphere(materials[1], vec3(0.0, 0.0, -1.5), 1.0, 2);
-    spheres[2] = Sphere(materials[2], vec3(2.0, 3.0, 0.0), 0.75, 3);
-    spheres[3] = Sphere(materials[3], vec3(-2.0, -3.0, 0.0), 0.5, 4);
-    // YML CYLINDERS
-    cylinders[0] = Cylinder(materials[0], vec3(4.5, -1.0, 1.0), vec3(0.0, 1.0, 0.0), 1.0, 2.0, -2.0, 5);
-    cylinders[1] = Cylinder(materials[1], vec3(-3.5, -2.0, 0.0), vec3(0.0, 0.0, 1.0), 1.0, 1.0, -1.0, 6);
-    // --
-    // YML TRIANGLES
-    triangles[0] = Triangle(materials[3], vec3(-16.0, 9.0, -3.0), vec3(14.0, -10.0, -3.0), vec3(14.0, 9.0, -3.0), 7);
-    triangles[1] = Triangle(materials[3], vec3(-16.0, -10.0, -3.0), vec3(14.0, -10.0, -3.0), vec3(-16.0, 9.0, -3.0), 8);
-    // --
-    // YML LIGHTS
-    lights[0] = Light(vec3(5.0, 5.0, 8.0), vec3(1.0, 0.0, 0.0), 1.2, 1);
-    lights[1] = Light(vec3(-8.0, -10.0, 2.0), vec3(0.0, 1.0, 0.0), 1.7, 2);
-    lights[2] = Light(vec3(-5.0, 5.0, 1.0), vec3(0.0, 0.0, 1.0), 1.5, 3);
-    // --
-    // GARBAGE - NEGATIVE ID DISCARD THESE OBJECTS
-    // --
-    // END::SCENEOBJECTS
+    return fg * fg.a + bg * (1.0 - fg.a);
 }
 
 vec2 calcSubPixel(vec2 p, float x, float y)
@@ -189,17 +144,13 @@ vec2 calcSubPixel(vec2 p, float x, float y)
     return transform(vec2(p.x - x, p.y + y));
 }
 
-float sps = 0.55;
-
 void sampleSubPixels(Ray inr, vec2 frag, Camera cam, inout vec4 subPixel[9])
 {
     int count = 0;
 
     for (int i = -1; i < 2; i++) {
         for (int j = -1; j < 2; j++) {
-            if (i == j && i == 0) { break; } // Don't Trace Center Pixel
-
-            inr.direction = normalize(vec3(calcSubPixel(frag, sps * i, sps * j), 0.0) + cam.direction);
+            inr.direction = normalize(vec3(calcSubPixel(frag, SUBPIXEL_DIST * i, SUBPIXEL_DIST * j), 0.0) + cam.direction);
             subPixel[count++] = trace(inr);
         }
     }
@@ -207,11 +158,12 @@ void sampleSubPixels(Ray inr, vec2 frag, Camera cam, inout vec4 subPixel[9])
 
 void superSample(Ray inr, vec2 frag, Camera cam, inout vec4 color)
 {
-    vec4 subPixel[9] = vec4[9](vec4(0.0), vec4(0.0), vec4(0.0),
-                               vec4(0.0), vec4(0.0), vec4(0.0),
-                               vec4(0.0), vec4(0.0), vec4(0.0));
+    vec4 subPixel[9] = vec4[9](
+                           vec4(0.0), vec4(0.0), vec4(0.0),
+                           vec4(0.0), vec4(0.0), vec4(0.0),
+                           vec4(0.0), vec4(0.0), vec4(0.0)
+                       );
     sampleSubPixels(inr, frag, cam,  subPixel);
-    int count = 0;
 
     for (int i = 0; i < 9; i++) { color += subPixel[i] / 9.0; }
 }
@@ -231,57 +183,92 @@ void intersectAll(Ray inRay, inout Intersection point)
     }
 }
 
-vec4 trace(in Ray inRay)
+vec4 traceAlpha(in Ray firstRay, in Intersection firstPoint, vec4 fg)
 {
-    vec4 color_final = vec4(0.0);
-    Intersection point, shadowPoint;
-    point.hit_id = 0;
-    point.mat = ambient;
-    point.dist = MAX_DELTA;
-    float shadowAcc = 1.0;
-    bool isShadowed;
+    if (firstPoint.mat.alpha >= 1.0) { return vec4(0.0); }
 
-    for (int i = 0; i < NUM_BOUNCES; i++) {
-        intersectAll(inRay, point);
+    vec4 alphaColor = vec4(0.0);
+    Ray alphaRay = firstRay;
+    Intersection alphaPoint = firstPoint, shadowPoint;
+    float alphaSdAcc = 1.0;
+    vec4 bgColor = vec4(0.0);
+    // Change Ray Origin to Closest Intersection
+    alphaRay.origin = alphaPoint.position;
+    // Intersect with the rest in the same direction
+    intersectAll(alphaRay, alphaPoint);
 
-        // Break loop if ray didn't hit anything
-        if (point.dist  >= MAX_DELTA) {
-            break;
-        }
-
+    if (alphaPoint.dist < firstPoint.dist) {
         for (int l = 0; l < NUM_LIGHTS; l++) {
-            isShadowed = shadow(inRay, point, lights[l], shadowPoint);
+            bgColor.xyz += cooktorrance(alphaRay, lights[l], alphaPoint);
 
-            if (!isShadowed  || isShadowed && point.mat.reflectiveIndex > 0.0 || isShadowed && point.mat.refractiveIndex > 0.0) {
-                color_final += cooktorrance(inRay, lights[l], point);
-            }
-
-            if (isShadowed && point.mat.reflectiveIndex > 0.0 || isShadowed && point.mat.refractiveIndex > 0.0) {
-                shadowAcc *= smoothstep(0.0, length(lights[l].position), shadowPoint.dist - dot(lights[l].position, point.normal));
+            if (enableShadows > 0.0) {
+                if (shadow(alphaRay, alphaPoint, lights[l], shadowPoint)) {
+                    alphaSdAcc *= 0.66;
+                }
             }
         }
 
-        if (point.mat.reflectiveIndex <= 0.0 && point.mat.refractiveIndex <= 0.0) {
-            break;
-        }
-
-        if (point.mat.reflectiveIndex > 0.0) {
-            inRay.origin = point.position;
-            inRay.direction = normalize(reflect(inRay.direction, point.normal));
-        }
-
-        if (point.mat.refractiveIndex > 0.0) {
-            inRay.origin = point.position;
-            inRay.direction = normalize(refract(inRay.direction, point.normal, 1.0 / point.mat.refractiveIndex));
-        }
-
-        point.dist = MAX_DELTA;
-        point.mat = ambient;
-        point.mat.refractiveIndex = 0.0;
-        point.mat.reflectiveIndex = 0.0;
+        alphaColor = blend(fg, bgColor * (0.5 + 0.5 * alphaSdAcc));
+    } else {
+        alphaColor = blend(fg, color_ambient);
     }
 
-    return color_ambient + color_final * (0.5 + 0.5 * shadowAcc);;
+    return alphaColor;
+}
+
+vec4 trace(in Ray inRay)
+{
+    Ray firstRay = inRay;
+    Intersection currentPoint, shadowPoint, firstPoint;
+    currentPoint.hit_id = 0;
+    currentPoint.mat = ambient;
+    currentPoint.dist = MAX_DELTA;
+    float shadowAcc = 1.0;
+    bool isShadowed, firstPointSet = false;
+
+    for (int i = 0; i < NUM_BOUNCES; i++) {
+        intersectAll(inRay, currentPoint);
+
+        // Break loop if ray didn't hit anything
+        if (currentPoint.dist  >= MAX_DELTA) {
+            vec4 currentColor = vec4(inRay.color * (0.5 + 0.5 * shadowAcc), firstPoint.mat.alpha);
+            return firstPointSet ? blend(currentColor, traceAlpha(firstRay, firstPoint, currentColor)) : currentColor;
+        }
+
+        if (!firstPointSet) { firstPointSet = true; firstPoint = currentPoint; }
+
+        for (int l = 0; l < NUM_LIGHTS; l++) {
+            if (lights[l].id > 0) { inRay.color += cooktorrance(inRay, lights[l], currentPoint) * inRay.intensity; };
+
+            if (enableShadows > 0.0) {
+                if (shadow(inRay, currentPoint, lights[l], shadowPoint)) {
+                    shadowAcc *= 0.66;
+                }
+            }
+        }
+
+        if (currentPoint.mat.reflectiveIndex <= 0.0 && currentPoint.mat.refractiveIndex <= 0.0) {
+            break;
+        }
+
+        if (currentPoint.mat.reflectiveIndex > 0.0) {
+            inRay.intensity *= currentPoint.mat.reflectiveIndex;
+            inRay.origin = currentPoint.position;
+            inRay.direction = normalize(reflect(inRay.direction, currentPoint.normal));
+        }
+
+        if (currentPoint.mat.refractiveIndex > 0.0) {
+            inRay.origin = currentPoint.position;
+            inRay.direction = normalize(refract(inRay.direction, currentPoint.normal, 1.0 / currentPoint.mat.refractiveIndex));
+        }
+
+        currentPoint.dist = MAX_DELTA;
+        currentPoint.mat = ambient;
+    }
+
+    vec4 currentColor = vec4(inRay.color * (0.5 + 0.5 * shadowAcc), firstPoint.mat.alpha);
+    vec4 alphaColor = traceAlpha(firstRay, firstPoint, currentColor);
+    return blend(currentColor, alphaColor);
 }
 
 bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point)
@@ -296,10 +283,10 @@ bool intersectionSphere(Ray sRay, Sphere sph, inout Intersection point)
     if (h < 0.0) { return false; }
 
     float t  = (-b - sqrt(h)) / 2.0;
-    point.mat = blend(sph.mat, point.mat);
 
     if (t > point.dist) { return false; }
 
+    point.mat = sph.mat;
     point.dist = t;
     point.position = sRay.origin + point.dist * sRay.direction;
     point.hit_id = sph.id;
@@ -331,11 +318,11 @@ bool intersectionTriangle(Ray sRay, Triangle tri, inout Intersection point)
     if (v < 0.0 || u + v > 1.0) { return false; }
 
     float t  = dot(e2, q) * invDet;
-    point.mat = blend(tri.mat, point.mat);
 
     if (t > point.dist) { return false; }
 
     if (t > EPSILON) {
+        point.mat = tri.mat;
         point.dist = t;
         point.position = sRay.origin + t * sRay.direction;
         point.hit_id = tri.id;
@@ -450,8 +437,8 @@ bool intersectionCylinder(Ray sRay, Cylinder cyl, inout Intersection point)
     }
 
     if (iSide || iTopCap || iButtomCap) {
-        point.mat = blend(cyl.mat, point.mat);
         t = min(tSide, min(tButtom, tTop));
+        point.mat = cyl.mat;
 
         if (t > point.dist) { return false; }
 
@@ -483,7 +470,7 @@ vec2 transform(vec2 p)
     return p;
 }
 
-vec4 phong(Ray sRay, Light light, Intersection point)
+vec3 phong(Ray sRay, Light light, Intersection point)
 {
     vec3 lightDirection = normalize(light.position - point.position);
     float d = length(lightDirection);
@@ -496,10 +483,10 @@ vec4 phong(Ray sRay, Light light, Intersection point)
     vec3 diffuse = point.mat.diffuse * cosTheta;
     vec3 specular = point.mat.specular * pow(cosAlpha, 10.0);
     vec3 finalValue = (ambient + diffuse + specular) * light.color * att * light.intensity;
-    return vec4(finalValue, point.mat.alpha);
+    return finalValue;
 }
 
-vec4 cooktorrance(Ray sRay, Light light, Intersection point)
+vec3 cooktorrance(Ray sRay, Light light, Intersection point)
 {
     // Attenuation factor based on the distance between the point on the surface and light position
     vec3 L = light.position - point.position;
@@ -542,19 +529,7 @@ vec4 cooktorrance(Ray sRay, Light light, Intersection point)
         specular = (fresnel * geo * rough) / (NdotV * NdotL);
     }
 
-    return vec4(A * LCOL * NdotL * (K * MCOL + specular * (1.0 - K)), point.mat.alpha);
-}
-
-Material blend(Material m1, Material m2)
-{
-    if (m2.id == 0) { return m1; }
-
-    Material final_mat = m2;
-    final_mat.diffuse *= m2.alpha;
-    final_mat.diffuse += m1.diffuse * (m2.alpha - 1.0);
-    final_mat.specular *= m2.alpha;
-    final_mat.specular += m1.specular * (m2.alpha - 1.0);
-    return final_mat;
+    return A * LCOL * NdotL * (K * MCOL + specular * (1.0 - K));
 }
 
 bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowPoint)

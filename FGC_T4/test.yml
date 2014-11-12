@@ -1,12 +1,6 @@
 ---
 tipo: Camara #ETCETC
-posicion: 0 0 0
-direccion: 0 0 -1
-sombras: true
-aliasing: false
----
-tipo: Camara #ETCETC
-posicion: 5 6 7
+posicion: 0 0 10
 direccion: 0 0 -1
 sombras: true
 aliasing: false
@@ -15,59 +9,82 @@ tipo: Material
 nombre: Azul1
 difuso: 0.1 0.1 0.9
 especular: 1.0 1.0 1.0
-reflexion: 0.3
-refracion: 0.0
-transparencia: 0.0 # totalmente opaco
----
-tipo: Material
-nombre: Azul3
-difuso: 0.5 0.1 0.9
-especular: 1.0 0.3 1.0
-reflexion: 0.3
-refracion: 0.0
-transparencia: 0.3
----
-tipo: Material
-nombre: Verde3
-difuso: 1.0 0.1 0.1
-especular: 1.0 0.3 0.1
 reflexion: 0.0
-refracion: 0.2
-transparencia: 0.3
+refracion: 0.0
+transparencia: 0.5
+---
+tipo: Material
+nombre: Verde1
+difuso: 0.0 1.0 0.0
+especular: 1.0 1.0 1.0
+reflexion: 0.0
+refracion: 0.0
+transparencia: 1.0
+---
+tipo: Material
+nombre: Rojo1
+difuso: 1.0 0.0 0.0
+especular: 1.0 1.0 1.0
+reflexion: 0.0
+refracion: 0.0
+transparencia: 1.0
+---
+tipo: Material
+nombre: Azul1Reflectivo
+difuso: 0.1 0.1 0.9
+especular: 1.0 1.0 1.0
+reflexion: 0.75
+refracion: 0.0
+transparencia: 0.5
+---
+tipo: Material
+nombre: Verde1Reflectivo
+difuso: 0.0 1.0 0.0
+especular: 1.0 1.0 1.0
+reflexion: 0.75
+refracion: 0.0
+transparencia: 1.0
+---
+tipo: Material
+nombre: Rojo1Reflectivo
+difuso: 1.0 0.0 0.0
+especular: 1.0 1.0 1.0
+reflexion: 0.75
+refracion: 0.0
+transparencia: 1.0
 ---
 tipo: Esfera
 material: Azul1
-centro: -1 1.2 -10
+centro: 0.0 0.0 0.0
 radio: 1.5
 ---
-tipo: Cilindro
-material: Verde3
-centro: 0 -2
-eje: Z
-radio: 1
-min: -2
-max: 3
+tipo: Luz
+posicion: 5.0 5.0 5.0
+color: 1.0 1.0 1.0
 ---
 tipo: Triangulo
-material: Rojo2
-punto1: 4 5 6
-punto2: -1.5 2 -3
-punto3: 1.0 -1 -1
+material: Azul1
+punto1: -20.0 19.0 -5.0
+punto2: 19.0 -15.0 -5.0
+punto3: 19.0 19.0 -5.0
 ---
-tipo: Luz
-posicion: -5 -5 -5
-color: 1 0 0.5
+tipo: Triangulo #Triangle(materials[3], vec3(-20.0, -15.0, -5.0), vec3(19.0, -15.0, -5.0), vec3(-20.0, 19.0, -5.0), 9);
+material: Azul1
+punto1: -20.0 -15.0 -5.0
+punto2: 19.0 -15.0 -5.0
+punto3: -20.0 19.0 -5.0
 ---
-tipo: Luz
-posicion: -5 -5 -5
-color: 1 0 0.5
----
-tipo: Luz
-posicion: -5 -5 -5
-color: 1 0 0.5
----
-tipo: Cubo
-material: Verde3
-carasx: -1 1
-carasy: -1 1
-carasz: -2 -3
+tipo: Cilindro
+material: Verde1
+centro: 4.0 0.0
+eje: X
+radio: 1
+min: -1
+max: 1---
+tipo: Cilindro
+material: Rojo1
+centro: 2.0 4.0
+eje: Y
+radio: 1
+min: -1
+max: 1---
