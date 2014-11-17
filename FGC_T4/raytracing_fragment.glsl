@@ -185,6 +185,8 @@ void intersectAll(Ray inRay, inout Intersection point)
 
 vec4 traceAlpha(in Ray firstRay, in Intersection firstPoint, vec4 fg)
 {
+    if (firstPoint.dist >= MAX_DELTA) { return fg; }
+
     if (firstPoint.mat.alpha >= 1.0) { return vec4(0.0); }
 
     vec4 alphaColor = vec4(0.0);
@@ -204,6 +206,39 @@ vec4 traceAlpha(in Ray firstRay, in Intersection firstPoint, vec4 fg)
             if (enableShadows > 0.0) {
                 if (shadow(alphaRay, alphaPoint, lights[l], shadowPoint)) {
                     alphaSdAcc *= 0.66;
+                }
+            }
+        }
+
+        if (alphaPoint.mat.reflectiveIndex <= 0.0 && alphaPoint.mat.refractiveIndex <= 0.0) {
+            return alphaColor = blend(fg, bgColor * (0.5 + 0.5 * alphaSdAcc));
+        }
+
+        // Single Refraction / Reflection Pass
+
+        if (alphaPoint.mat.reflectiveIndex > 0.0) {
+            alphaRay.intensity *= alphaPoint.mat.reflectiveIndex;
+            alphaRay.origin = alphaPoint.position;
+            alphaRay.direction = normalize(reflect(alphaRay.direction, alphaPoint.normal));
+        }
+
+        if (alphaPoint.mat.refractiveIndex > 0.0) {
+            alphaRay.origin = alphaPoint.position;
+            alphaRay.direction = normalize(refract(alphaRay.direction, alphaPoint.normal, 1.0 / alphaPoint.mat.refractiveIndex));
+        }
+
+        alphaPoint = firstPoint;
+        // Intersect with the rest in the same direction
+        intersectAll(alphaRay, alphaPoint);
+
+        if (alphaPoint.dist < firstPoint.dist) {
+            for (int l = 0; l < NUM_LIGHTS; l++) {
+                bgColor.xyz += cooktorrance(alphaRay, lights[l], alphaPoint);
+
+                if (enableShadows > 0.0) {
+                    if (shadow(alphaRay, alphaPoint, lights[l], shadowPoint)) {
+                        alphaSdAcc *= 0.66;
+                    }
                 }
             }
         }
@@ -238,7 +273,7 @@ vec4 trace(in Ray inRay)
         if (!firstPointSet) { firstPointSet = true; firstPoint = currentPoint; }
 
         for (int l = 0; l < NUM_LIGHTS; l++) {
-            if (lights[l].id > 0) { inRay.color += cooktorrance(inRay, lights[l], currentPoint) * inRay.intensity; };
+            inRay.color += cooktorrance(inRay, lights[l], currentPoint) * inRay.intensity;;
 
             if (enableShadows > 0.0) {
                 if (shadow(inRay, currentPoint, lights[l], shadowPoint)) {
@@ -267,7 +302,7 @@ vec4 trace(in Ray inRay)
     }
 
     vec4 currentColor = vec4(inRay.color * (0.5 + 0.5 * shadowAcc), firstPoint.mat.alpha);
-    vec4 alphaColor = traceAlpha(firstRay, firstPoint, currentColor);
+    vec4 alphaColor = firstPointSet ? traceAlpha(firstRay, firstPoint, currentColor) : color_ambient;
     return blend(currentColor, alphaColor);
 }
 
@@ -536,15 +571,14 @@ bool shadow(Ray inRay, Intersection point, Light light, out Intersection shadowP
 {
     vec3 L = light.position - point.position;
     float distance = length(L);
-    L = normalize(L);
     Ray shadowRay;
     Intersection lx = point;
     lx.dist = MAX_DELTA;
     shadowRay.origin = lx.position;
-    shadowRay.direction = L;
+    shadowRay.direction = normalize(L);
     intersectAll(shadowRay, lx);
 
-    if (lx.dist < MAX_DELTA && lx.dist < distance) {
+    if (lx.dist < MAX_DELTA && lx.dist < distance && lx.hit_id != point.hit_id) {
         shadowPoint = lx;
         return true;
     }

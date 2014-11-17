@@ -33,7 +33,7 @@ class Renderer {
         void logShaderCompilerErrors();
         static void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
     public:
-        void init(Scene::SceneManager sceneElements);
+        void init(Scene::SceneManager sceneElements, std::string outFile, int rWidth, int rHeight);
         void terminate();
         void toFile(std::string filename, int renderWidth, int renderHeight);
         Renderer(void);

@@ -76,8 +76,8 @@
     <ClInclude Include="Scene.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="camera0.tga" />
     <None Include="raytracing_fragment.glsl" />
+    <None Include="salida0.tga" />
     <None Include="test.yml" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

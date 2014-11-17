@@ -38,7 +38,7 @@
     <None Include="test.yml">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="camera0.tga">
+    <None Include="salida0.tga">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

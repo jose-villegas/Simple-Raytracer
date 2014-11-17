@@ -10,11 +10,11 @@ Renderer::~Renderer(void)
 {
 }
 
-void Renderer::init(Scene::SceneManager sceneElements)
+void Renderer::init(Scene::SceneManager sceneElements, std::string outFile, int rWidth, int rHeight)
 {
     this->sceneData = sceneElements;
-    const int renderWidth = 2560;
-    const int renderHeight = 1440;
+    const int renderWidth = rWidth;
+    const int renderHeight = rHeight;
     const int windowWidth = 1;
     const int windowHeight = 1;
 
@@ -65,7 +65,7 @@ void Renderer::init(Scene::SceneManager sceneElements)
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glfwSwapBuffers(window);
         // Save Render
-        toFile("camera" + std::to_string(i) + ".tga", renderWidth, renderHeight);
+        toFile(outFile + std::to_string(i) + ".tga", renderWidth, renderHeight);
     }
 
     glViewport(0, 0, windowWidth, windowHeight);
