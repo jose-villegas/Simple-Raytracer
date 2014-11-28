@@ -12,6 +12,9 @@ Output: salidaXX.tga (XX per camera)
 ![alt tag](http://i.imgur.com/mCrFV9z.jpg)
 (check /FGC_T4/test.yml for reference)
 
+![alt tag](http://i.imgur.com/ZrcFNC2.png)
+(oold verion)
+
 *Dependencies*: GLFW 3.0.4, GLM Library, GLEW.
 
 Scene Example:
