@@ -1,9 +1,15 @@
 FGC_RayTracing
 ==============
 
-Command line raytracing for a simple scene loader with YAML format
+A really simple raytracer.
 
-Command: <pre>raytrace -iescena1.txt -osalida.png -s640x480</pre>
+Command line raytracing for a simple scene loader with YAML format (kind of)
+
+Command: <pre>raytrace -iescena1.txt -osalida -s640x480</pre>
+
+Output: salidaXX.tga (XX per camera)
+
+![alt tag](http://i.imgur.com/mCrFV9z.jpg)
 
 *Dependencies*: GLFW 3.0.4, GLM Library, GLEW.
 
