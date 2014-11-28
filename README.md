@@ -10,6 +10,7 @@ Command: <pre>raytrace -iescena1.txt -osalida -s640x480</pre>
 Output: salidaXX.tga (XX per camera)
 
 ![alt tag](http://i.imgur.com/mCrFV9z.jpg)
+(check /FGC_T4/test.yml for reference)
 
 *Dependencies*: GLFW 3.0.4, GLM Library, GLEW.
 
