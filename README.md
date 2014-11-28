@@ -3,7 +3,7 @@ FGC_RayTracing
 
 A really simple raytracer.
 
-You can check the GLSL Shader running here !(https://www.shadertoy.com/view/Xd2Xzc) may be outdated.
+You can check the GLSL Shader running here https://www.shadertoy.com/view/Xd2Xzc may be outdated.
 
 Command line raytracing for a simple scene loader with YAML format (kind of)
 
