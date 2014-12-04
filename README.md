@@ -1,7 +1,9 @@
-FGC_RayTracing
+Simple Impostor Raytracer
 ==============
 
-A really simple raytracer. You can check the GLSL Shader running in real-time here https://www.shadertoy.com/view/Xd2Xzc may be outdated.
+Project for Computer Graphics
+
+A really simple raytracer for spheres, cylinder and triangle impostors. You can check the GLSL Shader running in real-time here https://www.shadertoy.com/view/Xd2Xzc may be outdated.
 
 Command line raytracing for a simple scene loader with YAML format (kind of)
 
